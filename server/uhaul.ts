@@ -36,63 +36,59 @@ export async function lookupUhaulOneWayPlaywright(
       "Accept-Language": "en-US,en;q=0.9",
     });
 
-    console.log("[playwright] Navigating to uhaul.com/Trucks/");
+    // Step 1: visit uhaul.com to establish session + cookies
+    console.log("[playwright] Establishing session on uhaul.com/Trucks/");
     await page.goto("https://www.uhaul.com/Trucks/", {
       waitUntil: "domcontentloaded",
       timeout: 30000,
     });
+    await page.waitForTimeout(1500); // let JS settle
 
-    // Fill pickup location
-    await page.waitForSelector(
-      'input[name="PickupLocation"], #PickupLocation, input[placeholder*="ickup"]',
-      { timeout: 10000 }
+    // Step 2: submit the equipment search form programmatically via JS
+    // This replicates the POST to /EquipmentSearch/ using the session we just got
+    console.log("[playwright] Submitting search via JS form injection");
+    await page.evaluate(
+      ({ pickup, dropoff, date }) => {
+        const form = document.createElement("form");
+        form.method = "POST";
+        form.action = "/EquipmentSearch/";
+        const fields: Record<string, string> = {
+          PickupLocation: pickup,
+          DropoffLocation: dropoff,
+          PickupDate: date,
+          Scenario: "TruckOnly",
+          ReturnLocation: dropoff,
+          TripType: "OneWay",
+        };
+        for (const [name, value] of Object.entries(fields)) {
+          const input = document.createElement("input");
+          input.type = "hidden";
+          input.name = name;
+          input.value = value;
+          form.appendChild(input);
+        }
+        document.body.appendChild(form);
+        form.submit();
+      },
+      { pickup, dropoff, date }
     );
-    const pickupSel =
-      'input[name="PickupLocation"], #PickupLocation, input[placeholder*="ickup"]';
-    await page.fill(pickupSel, pickup);
-    await page.waitForTimeout(500);
 
-    // Fill dropoff location
-    const dropoffSel =
-      'input[name="DropoffLocation"], #DropoffLocation, input[placeholder*="ropoff"], input[placeholder*="eturn"]';
-    await page.fill(dropoffSel, dropoff);
-    await page.waitForTimeout(500);
+    // Step 3: wait for navigation to rates page
+    await page.waitForNavigation({ waitUntil: "domcontentloaded", timeout: 30000 });
+    console.log("[playwright] After EquipmentSearch, URL:", page.url());
 
-    // Select one-way if there's a trip type selector
-    try {
-      const oneWayRadio = page.locator(
-        'input[value="one_way"], input[value="OneWay"], label:has-text("One Way")'
-      );
-      if (await oneWayRadio.count() > 0) await oneWayRadio.first().click();
-    } catch {}
-
-    // Fill date
-    const dateSel =
-      'input[name="PickupDate"], #PickupDate, input[type="date"], input[placeholder*="ate"]';
-    try {
-      await page.fill(dateSel, date);
-    } catch {}
-    await page.waitForTimeout(300);
-
-    // Submit the form
-    console.log("[playwright] Submitting search form");
-    await Promise.all([
-      page.waitForNavigation({ waitUntil: "domcontentloaded", timeout: 30000 }),
-      page.click(
-        'button[type="submit"], input[type="submit"], button:has-text("View Rates"), button:has-text("Search")'
-      ),
-    ]);
-
-    // Wait for rates page content
-    console.log("[playwright] Waiting for rates page:", page.url());
-    try {
-      await page.waitForSelector(
-        '[class*="rate"], [class*="truck"], [class*="price"], .rate-card',
-        { timeout: 15000 }
-      );
-    } catch {
-      // May have loaded without those selectors — try to parse anyway
+    // Step 4: if we ended up on EquipmentSearch, navigate to RatesTrucks
+    if (!page.url().includes("RatesTrucks")) {
+      console.log("[playwright] Navigating to RatesTrucks");
+      await page.goto("https://www.uhaul.com/Reservations/RatesTrucks/", {
+        waitUntil: "domcontentloaded",
+        timeout: 20000,
+      });
     }
+
+    // Give rates page time to render
+    await page.waitForTimeout(2000);
+    console.log("[playwright] Rates page URL:", page.url());
 
     const html = await page.content();
     console.log(
