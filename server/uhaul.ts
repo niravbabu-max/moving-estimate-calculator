@@ -187,8 +187,8 @@ export async function lookupUhaulPricing(
   }
 }
 
-// ScrapFly: single JS-rendered request that fills + submits the form in-browser.
-// This avoids the multi-step session cookie problem entirely.
+// ScrapFly fallback: 3-step HTTP through ScrapFly's residential proxy with explicit cookie threading.
+// Direct HTTP sometimes fails because Railway's IP is flagged; ScrapFly's US residential IPs are cleaner.
 async function fetchViaScrapFly(
   pickup: string,
   dropoff: string,
@@ -199,67 +199,74 @@ async function fetchViaScrapFly(
     console.log("[scrapfly] No SCRAPFLY_API_KEY set, skipping");
     return null;
   }
-  console.log("[scrapfly] JS form interaction for:", pickup, "->", dropoff);
+  console.log("[scrapfly] 3-step residential proxy for:", pickup, "->", dropoff);
+
+  const sfBase = "https://api.scrapfly.io/scrape";
 
   try {
-    const sfBase = "https://api.scrapfly.io/scrape";
-
-    // Single request: load /Trucks/, fill the form via JS, submit, wait for rates page
-    const actions = [
-      // Wait for the search form to be ready
-      { type: "WAIT_FOR_SELECTOR", selector: "input[name='PickupLocation'], #PickupLocation", timeout: 10000 },
-      // Fill form fields
-      {
-        type: "EVALUATE",
-        script: `
-          (function() {
-            var pInput = document.querySelector("input[name='PickupLocation']") || document.querySelector("#PickupLocation");
-            var dInput = document.querySelector("input[name='DropoffLocation']") || document.querySelector("#DropoffLocation");
-            var dtInput = document.querySelector("input[name='PickupDate']") || document.querySelector("#PickupDate");
-            if (pInput) { pInput.value = ${JSON.stringify(pickup)}; pInput.dispatchEvent(new Event('input', {bubbles:true})); pInput.dispatchEvent(new Event('change', {bubbles:true})); }
-            if (dInput) { dInput.value = ${JSON.stringify(dropoff)}; dInput.dispatchEvent(new Event('input', {bubbles:true})); dInput.dispatchEvent(new Event('change', {bubbles:true})); }
-            if (dtInput) { dtInput.value = ${JSON.stringify(date)}; dtInput.dispatchEvent(new Event('input', {bubbles:true})); dtInput.dispatchEvent(new Event('change', {bubbles:true})); }
-          })();
-        `,
-      },
-      // Short pause for any autocomplete/validation to settle
-      { type: "WAIT", milliseconds: 500 },
-      // Click the submit button — this triggers U-Haul's JS event handlers (unlike form.submit() which bypasses them)
-      { type: "CLICK", selector: "button[type='submit'], input[type='submit'], .btn-submit, #searchSubmit, button.search" },
-      // Wait for navigation to rates page
-      { type: "WAIT", milliseconds: 10000 },
-    ];
-
-    const params = new URLSearchParams({
+    // Step 1: GET /Trucks/ — establish session and get cookies
+    const s1Resp = await fetch(`${sfBase}?${new URLSearchParams({
       key: apiKey,
       url: "https://www.uhaul.com/Trucks/",
       asp: "true",
-      render_js: "true",
       country: "us",
-      actions: JSON.stringify(actions),
+    })}`);
+    const s1Data = await s1Resp.json() as any;
+    const cookieJar = new Map<string, string>();
+    for (const c of (s1Data?.result?.cookies || [])) cookieJar.set(c.name, c.value);
+    console.log("[scrapfly] Step1 url:", s1Data?.result?.url, "| cookies:", cookieJar.size);
+
+    const cookieStr = () => Array.from(cookieJar.entries()).map(([k, v]) => `${k}=${v}`).join("; ");
+
+    // Step 2: POST /EquipmentSearch/ with session cookies
+    const formData = new URLSearchParams({
+      Scenario: "TruckOnly",
+      IsActionFrom: "False",
+      UsedGeocoded: "false",
+      PreviouslySharedLocation: "false",
+      PreviouslySharedLocationDetail: "",
+      PickupLocation: pickup,
+      DropoffLocation: dropoff,
+      PickupDate: date,
     });
 
-    const resp = await fetch(`${sfBase}?${params}`);
-    const data = (await resp.json()) as any;
-    const html = data?.result?.content || "";
-    const finalUrl = data?.result?.url || "unknown";
+    const s2Params = new URLSearchParams({
+      key: apiKey,
+      url: "https://www.uhaul.com/EquipmentSearch/",
+      asp: "true",
+      country: "us",
+      "headers[Cookie]": cookieStr(),
+      "headers[Content-Type]": "application/x-www-form-urlencoded",
+      "headers[Referer]": "https://www.uhaul.com/Trucks/",
+      "headers[Origin]": "https://www.uhaul.com",
+      "headers[X-Requested-With]": "XMLHttpRequest",
+    });
 
-    console.log("[scrapfly] Final URL:", finalUrl);
-    console.log(
-      "[scrapfly] Content length:",
-      html.length,
-      "| has 'Rates for':",
-      html.includes("Rates for"),
-      "| has '$':",
-      html.includes("$")
-    );
+    const s2Resp = await fetch(`${sfBase}?${s2Params}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: formData.toString(),
+    });
+    const s2Data = await s2Resp.json() as any;
+    for (const c of (s2Data?.result?.cookies || [])) cookieJar.set(c.name, c.value);
+    console.log("[scrapfly] Step2 url:", s2Data?.result?.url, "| cookies now:", cookieJar.size);
 
-    if (!html) {
-      console.log("[scrapfly] Empty response. Error:", JSON.stringify(data?.context?.error || data?.error || "none").substring(0, 300));
-      return null;
-    }
+    // Step 3: GET /RatesTrucks/ with all accumulated cookies
+    const s3Resp = await fetch(`${sfBase}?${new URLSearchParams({
+      key: apiKey,
+      url: "https://www.uhaul.com/Reservations/RatesTrucks/",
+      asp: "true",
+      render_js: "true",
+      country: "us",
+      wait: "3000",
+      "headers[Cookie]": cookieStr(),
+      "headers[Referer]": "https://www.uhaul.com/Trucks/",
+    })}`);
+    const s3Data = await s3Resp.json() as any;
+    const html = s3Data?.result?.content || "";
 
-    // Return whatever page we landed on and let the parser handle it
+    console.log("[scrapfly] Step3 url:", s3Data?.result?.url, "| len:", html.length, "| rates:", html.includes("Rates for"));
+
     if (html.length > 5000) return html;
     return null;
   } catch (err: any) {
