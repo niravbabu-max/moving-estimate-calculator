@@ -120,6 +120,7 @@ export default function Home() {
   const [customerName, setCustomerName] = useState("");
   const [weightLbs, setWeightLbs] = useState<string>("");
   const [hourlyRate, setHourlyRate] = useState<string>("80");
+  const [packingHours, setPackingHours] = useState<string>("");
   const [isLongDistance, setIsLongDistance] = useState(false);
   const [notes, setNotes] = useState("");
 
@@ -220,6 +221,7 @@ export default function Home() {
   // Cost calculations
   const rate = parseFloat(hourlyRate) || 0;
   const laborCost = loadData ? loadData.totalLaborHours * rate : 0;
+  const packingCost = loadData ? (parseFloat(packingHours) || 0) * rate * loadData.numMovers : 0;
   const totalUhaulRental = needUhaul ? truckLines.reduce((sum, l) => sum + getTruckRentalCost(l), 0) : 0;
   const totalFuelCost = needUhaul && tripType === "in_town" ? truckLines.reduce((sum, l) => sum + getFuelCost(l.size), 0) : 0;
   const insuranceCost = needUhaul ? (parseFloat(uhaulInsurance) || 0) : 0;
@@ -235,7 +237,7 @@ export default function Home() {
   const miscTotal = isLongDistance ? (parseFloat(miscCost) || 0) : 0;
   const longDistanceExpenses = perDiemTotal + hotelTotal + flightTotal + miscTotal;
 
-  const totalEstimate = laborCost + totalUhaulCost + longDistanceExpenses;
+  const totalEstimate = laborCost + packingCost + totalUhaulCost + longDistanceExpenses;
 
   // History
   const { data: history = [] } = useQuery<Estimate[]>({ queryKey: ["/api/estimates"] });
@@ -255,6 +257,8 @@ export default function Home() {
         numHours: loadData.numHours,
         totalLaborHours: loadData.totalLaborHours,
         laborCost,
+        packingHours: packingCost > 0 ? (parseFloat(packingHours) || 0) : null,
+        packingCost: packingCost > 0 ? packingCost : null,
         uhaulCost: needUhaul ? totalUhaulCost : null,
         totalEstimate,
         notes: notes || null,
@@ -266,6 +270,7 @@ export default function Home() {
       queryClient.invalidateQueries({ queryKey: ["/api/estimates"] });
       setCustomerName("");
       setWeightLbs("");
+      setPackingHours("");
       setNotes("");
       setNeedUhaul(false);
       setTruckLines([{ id: 1, size: "26ft", costOverride: "" }]);
@@ -294,6 +299,8 @@ export default function Home() {
         numHours: loadData.numHours,
         totalLaborHours: loadData.totalLaborHours,
         laborCost,
+        packingHours: packingCost > 0 ? (parseFloat(packingHours) || 0) : undefined,
+        packingCost: packingCost > 0 ? packingCost : undefined,
         uhaulCost: needUhaul ? totalUhaulCost : null,
         totalEstimate,
         notes: notes || null,
@@ -448,6 +455,28 @@ export default function Home() {
                     <Input id="hourlyRate" type="number" min="0" step="5" className="pl-8" value={hourlyRate} onChange={(e) => setHourlyRate(e.target.value)} data-testid="input-hourly-rate" />
                   </div>
                   <p className="text-xs text-muted-foreground">Default: $80/hr per mover</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="packingHours">Packing Hours</Label>
+                  <div className="relative">
+                    <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      id="packingHours"
+                      type="number"
+                      min="0"
+                      step="0.5"
+                      className="pl-8"
+                      placeholder="0"
+                      value={packingHours}
+                      onChange={(e) => setPackingHours(e.target.value)}
+                      data-testid="input-packing-hours"
+                    />
+                  </div>
+                  {packingCost > 0 && loadData && (
+                    <p className="text-xs text-muted-foreground">
+                      {packingHours} hrs × ${rate}/hr × {loadData.numMovers} movers = {fmt(packingCost)}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="notes">Notes (optional)</Label>
@@ -1002,6 +1031,14 @@ export default function Home() {
                         <span className="text-foreground">Labor Cost</span>
                         <span className="text-foreground" data-testid="text-labor-cost">{fmt(laborCost)}</span>
                       </div>
+                      {packingCost > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground flex items-center gap-1">
+                            <Package className="w-3 h-3" />Packing
+                          </span>
+                          <span className="text-foreground" data-testid="text-packing-cost">{fmt(packingCost)}</span>
+                        </div>
+                      )}
                       {needUhaul && (
                         <>
                           <div className="flex justify-between text-sm">

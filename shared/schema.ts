@@ -14,6 +14,8 @@ export const estimates = sqliteTable("estimates", {
   numHours: real("num_hours").notNull(),
   totalLaborHours: real("total_labor_hours").notNull(),
   laborCost: real("labor_cost").notNull(),
+  packingHours: real("packing_hours"),
+  packingCost: real("packing_cost"),
   uhaulCost: real("uhaul_cost"),
   totalEstimate: real("total_estimate").notNull(),
   notes: text("notes"),

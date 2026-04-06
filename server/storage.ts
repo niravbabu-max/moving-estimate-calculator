@@ -28,12 +28,24 @@ export class DatabaseStorage implements IStorage {
         num_hours REAL NOT NULL,
         total_labor_hours REAL NOT NULL,
         labor_cost REAL NOT NULL,
+        packing_hours REAL,
+        packing_cost REAL,
         uhaul_cost REAL,
         total_estimate REAL NOT NULL,
         notes TEXT,
         created_at TEXT NOT NULL
       )
     `);
+
+    // Migrate existing databases — add packing columns if they don't exist yet
+    const cols = sqlite.prepare("PRAGMA table_info(estimates)").all() as { name: string }[];
+    const colNames = cols.map((c) => c.name);
+    if (!colNames.includes("packing_hours")) {
+      sqlite.exec("ALTER TABLE estimates ADD COLUMN packing_hours REAL");
+    }
+    if (!colNames.includes("packing_cost")) {
+      sqlite.exec("ALTER TABLE estimates ADD COLUMN packing_cost REAL");
+    }
   }
 
   createEstimate(data: InsertEstimate): Estimate {
