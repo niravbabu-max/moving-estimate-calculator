@@ -7,13 +7,19 @@ async function getBrowser(): Promise<Browser> {
   if (_browser && _browser.isConnected()) return _browser;
   _browser = await chromium.launch({
     headless: true,
+    executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined,
     args: [
       "--no-sandbox",
       "--disable-setuid-sandbox",
       "--disable-dev-shm-usage",
       "--disable-gpu",
-      "--single-process",
-      "--no-zygote",
+      "--disable-extensions",
+      "--disable-background-networking",
+      "--disable-default-apps",
+      "--disable-sync",
+      "--no-first-run",
+      "--hide-scrollbars",
+      "--mute-audio",
     ],
   });
   return _browser;
