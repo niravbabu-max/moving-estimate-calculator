@@ -123,14 +123,22 @@ export async function lookupUhaulPricing(
 
     let html = s3.ok ? await s3.text() : "";
 
-    // If direct fetch didn't return rates, try ScrapFly with JS form interaction
+    // If direct fetch didn't return rates, try ScrapFly with JS form interaction (up to 2 attempts)
     if (!html.includes("Rates for")) {
-      const sfHtml = await fetchViaScrapFly(
-        pickup,
-        tripType === "one_way" ? dropoff : "",
-        date
-      );
-      if (sfHtml) html = sfHtml;
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        console.log(`[uhaul] ScrapFly attempt ${attempt}/2`);
+        const sfHtml = await fetchViaScrapFly(
+          pickup,
+          tripType === "one_way" ? dropoff : "",
+          date
+        );
+        if (sfHtml && sfHtml.includes("Rates for")) {
+          html = sfHtml;
+          break;
+        }
+        // Short pause between attempts
+        if (attempt < 2) await new Promise(r => setTimeout(r, 2000));
+      }
     }
 
     if (!html || !html.includes("Rates for")) {
@@ -196,8 +204,8 @@ async function fetchViaScrapFly(
           })();
         `,
       },
-      // Wait for navigation to rates page (8 seconds for JS + server round-trip)
-      { type: "WAIT", milliseconds: 8000 },
+      // Wait for navigation to rates page (10 seconds for JS + server round-trip)
+      { type: "WAIT", milliseconds: 10000 },
     ];
 
     const params = new URLSearchParams({
