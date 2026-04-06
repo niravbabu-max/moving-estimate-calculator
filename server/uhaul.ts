@@ -123,7 +123,28 @@ export async function lookupUhaulPricing(
 
     let html = s3.ok ? await s3.text() : "";
 
-    // If direct fetch didn't return rates, try ScrapFly with JS form interaction (up to 2 attempts)
+    // Retry direct HTTP once more before falling back to ScrapFly
+    if (!html.includes("Rates for")) {
+      console.log("[uhaul] Direct HTTP miss, retrying once...");
+      await new Promise(r => setTimeout(r, 2000));
+      try {
+        const r1 = await fetch("https://www.uhaul.com/Trucks/", { headers: BROWSER_HEADERS, redirect: "follow" });
+        await r1.arrayBuffer();
+        let rc = getCookies(r1.headers);
+        const r2 = await fetch("https://www.uhaul.com/EquipmentSearch/", {
+          method: "POST",
+          headers: { ...BROWSER_HEADERS, "Content-Type": "application/x-www-form-urlencoded", "X-Requested-With": "XMLHttpRequest", Referer: "https://www.uhaul.com/Trucks/", Origin: "https://www.uhaul.com", Cookie: rc, "Sec-Fetch-Dest": "empty", "Sec-Fetch-Mode": "cors", "Sec-Fetch-Site": "same-origin" },
+          body: formBody.toString(), redirect: "follow",
+        });
+        const rc2 = getCookies(r2.headers);
+        if (rc2) rc = rc + "; " + rc2;
+        await r2.arrayBuffer();
+        const r3 = await fetch("https://www.uhaul.com/Reservations/RatesTrucks/", { headers: { ...BROWSER_HEADERS, Referer: "https://www.uhaul.com/Trucks/", Cookie: rc }, redirect: "follow" });
+        if (r3.ok) { const retryHtml = await r3.text(); if (retryHtml.includes("Rates for")) html = retryHtml; }
+      } catch { /* ignore, fall through to ScrapFly */ }
+    }
+
+    // If still no rates, try ScrapFly with JS form interaction (up to 2 attempts)
     if (!html.includes("Rates for")) {
       for (let attempt = 1; attempt <= 2; attempt++) {
         console.log(`[uhaul] ScrapFly attempt ${attempt}/2`);
@@ -136,8 +157,7 @@ export async function lookupUhaulPricing(
           html = sfHtml;
           break;
         }
-        // Short pause between attempts
-        if (attempt < 2) await new Promise(r => setTimeout(r, 2000));
+        if (attempt < 2) await new Promise(r => setTimeout(r, 3000));
       }
     }
 
@@ -188,7 +208,7 @@ async function fetchViaScrapFly(
     const actions = [
       // Wait for the search form to be ready
       { type: "WAIT_FOR_SELECTOR", selector: "input[name='PickupLocation'], #PickupLocation", timeout: 10000 },
-      // Fill pickup, dropoff, date and submit via JavaScript
+      // Fill form fields
       {
         type: "EVALUATE",
         script: `
@@ -196,15 +216,17 @@ async function fetchViaScrapFly(
             var pInput = document.querySelector("input[name='PickupLocation']") || document.querySelector("#PickupLocation");
             var dInput = document.querySelector("input[name='DropoffLocation']") || document.querySelector("#DropoffLocation");
             var dtInput = document.querySelector("input[name='PickupDate']") || document.querySelector("#PickupDate");
-            if (pInput) { pInput.value = ${JSON.stringify(pickup)}; pInput.dispatchEvent(new Event('change', {bubbles:true})); }
-            if (dInput) { dInput.value = ${JSON.stringify(dropoff)}; dInput.dispatchEvent(new Event('change', {bubbles:true})); }
-            if (dtInput) { dtInput.value = ${JSON.stringify(date)}; dtInput.dispatchEvent(new Event('change', {bubbles:true})); }
-            var form = document.querySelector("form[action*='EquipmentSearch'], form[action*='equipment']") || document.querySelector("form");
-            if (form) { form.submit(); }
+            if (pInput) { pInput.value = ${JSON.stringify(pickup)}; pInput.dispatchEvent(new Event('input', {bubbles:true})); pInput.dispatchEvent(new Event('change', {bubbles:true})); }
+            if (dInput) { dInput.value = ${JSON.stringify(dropoff)}; dInput.dispatchEvent(new Event('input', {bubbles:true})); dInput.dispatchEvent(new Event('change', {bubbles:true})); }
+            if (dtInput) { dtInput.value = ${JSON.stringify(date)}; dtInput.dispatchEvent(new Event('input', {bubbles:true})); dtInput.dispatchEvent(new Event('change', {bubbles:true})); }
           })();
         `,
       },
-      // Wait for navigation to rates page (10 seconds for JS + server round-trip)
+      // Short pause for any autocomplete/validation to settle
+      { type: "WAIT", milliseconds: 500 },
+      // Click the submit button — this triggers U-Haul's JS event handlers (unlike form.submit() which bypasses them)
+      { type: "CLICK", selector: "button[type='submit'], input[type='submit'], .btn-submit, #searchSubmit, button.search" },
+      // Wait for navigation to rates page
       { type: "WAIT", milliseconds: 10000 },
     ];
 
