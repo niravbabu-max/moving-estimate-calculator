@@ -1,204 +1,3 @@
-import { chromium, type Browser, type Page } from "playwright";
-
-// ── Singleton browser (reused across requests) ──
-let _browser: Browser | null = null;
-
-async function getBrowser(): Promise<Browser> {
-  if (_browser && _browser.isConnected()) return _browser;
-  _browser = await chromium.launch({
-    headless: true,
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-      "--disable-gpu",
-      "--disable-extensions",
-      "--disable-background-networking",
-      "--disable-default-apps",
-      "--disable-sync",
-      "--no-first-run",
-      "--hide-scrollbars",
-      "--mute-audio",
-    ],
-  });
-  return _browser;
-}
-
-// ── Playwright-based one-way quote fetcher ──
-export async function lookupUhaulOneWayPlaywright(
-  pickup: string,
-  dropoff: string,
-  date: string // MM/DD/YYYY
-): Promise<UhaulLookupResult> {
-  let page: Page | null = null;
-  try {
-    const browser = await getBrowser();
-    page = await browser.newPage();
-    await page.setViewportSize({ width: 1280, height: 800 });
-    await page.setExtraHTTPHeaders({
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-      "Accept-Language": "en-US,en;q=0.9",
-    });
-
-    // Step 1: visit uhaul.com to establish session + cookies
-    console.log("[playwright] Establishing session on uhaul.com/Trucks/");
-    await page.goto("https://www.uhaul.com/Trucks/", {
-      waitUntil: "domcontentloaded",
-      timeout: 30000,
-    });
-    await page.waitForTimeout(1500); // let JS settle
-
-    // Step 2: submit the equipment search form programmatically via JS
-    // This replicates the POST to /EquipmentSearch/ using the session we just got
-    console.log("[playwright] Submitting search via JS form injection");
-    await page.evaluate(
-      ({ pickup, dropoff, date }) => {
-        const form = document.createElement("form");
-        form.method = "POST";
-        form.action = "/EquipmentSearch/";
-        const fields: Record<string, string> = {
-          PickupLocation: pickup,
-          DropoffLocation: dropoff,
-          PickupDate: date,
-          Scenario: "TruckOnly",
-          ReturnLocation: dropoff,
-          TripType: "OneWay",
-        };
-        for (const [name, value] of Object.entries(fields)) {
-          const input = document.createElement("input");
-          input.type = "hidden";
-          input.name = name;
-          input.value = value;
-          form.appendChild(input);
-        }
-        document.body.appendChild(form);
-        form.submit();
-      },
-      { pickup, dropoff, date }
-    );
-
-    // Step 3: wait for navigation to rates page
-    await page.waitForNavigation({ waitUntil: "domcontentloaded", timeout: 30000 });
-    console.log("[playwright] After EquipmentSearch, URL:", page.url());
-
-    // Step 4: if we ended up on EquipmentSearch, navigate to RatesTrucks
-    if (!page.url().includes("RatesTrucks")) {
-      console.log("[playwright] Navigating to RatesTrucks");
-      await page.goto("https://www.uhaul.com/Reservations/RatesTrucks/", {
-        waitUntil: "domcontentloaded",
-        timeout: 20000,
-      });
-    }
-
-    // Give rates page time to render
-    await page.waitForTimeout(2000);
-    console.log("[playwright] Rates page URL:", page.url());
-
-    const html = await page.content();
-    console.log(
-      "[playwright] Got page content, length:",
-      html.length,
-      "has Rates for:",
-      html.includes("Rates for")
-    );
-
-    // Use existing HTML parser
-    return parseUhaulHtml(html, pickup, dropoff, date, "one_way");
-  } catch (err: any) {
-    console.error("[playwright] Error:", err.message);
-    // If browser died, reset it so next request gets a fresh one
-    _browser = null;
-    return {
-      success: false,
-      pickup,
-      dropoff,
-      date,
-      tripType: "one_way",
-      trucks: [],
-      error: "Playwright fetch failed: " + (err.message || "unknown error"),
-    };
-  } finally {
-    if (page) await page.close().catch(() => {});
-  }
-}
-
-// ── Shared HTML parser (used by both HTTP and Playwright paths) ──
-function parseUhaulHtml(
-  html: string,
-  pickup: string,
-  dropoff: string,
-  date: string,
-  tripType: "one_way" | "in_town"
-): UhaulLookupResult {
-  const text = html
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&#39;/g, "'")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/\s+/g, " ");
-
-  const trucks: UhaulPriceResult[] = [];
-  const isInTown = tripType === "in_town";
-
-  if (isInTown) {
-    const pattern =
-      /(\d+)'\s*(?:Truck|Cargo Van|Pickup Truck)[\s\S]*?\$([0-9,]+(?:\.\d{2})?)[\s\S]*?plus \$([0-9.]+)\/mile/gi;
-    let m: RegExpExecArray | null;
-    while ((m = pattern.exec(text)) !== null) {
-      const size = m[1];
-      const baseRate = parseFloat(m[2].replace(",", ""));
-      const mileageRate = parseFloat(m[3]);
-      if (!trucks.find((t) => t.truckSize === size + "ft")) {
-        trucks.push({ truckSize: size + "ft", price: baseRate, description: "", baseRate, mileageRate });
-      }
-    }
-  } else {
-    const pattern =
-      /(\d+)'\s*(?:Truck|Cargo Van|Pickup Truck)[\s\S]*?(?:\$([\d,]+\.\d{2})|Not available)/gi;
-    let m: RegExpExecArray | null;
-    while ((m = pattern.exec(text)) !== null) {
-      const size = m[1];
-      const price = m[2] ? parseFloat(m[2].replace(",", "")) : null;
-      if (!trucks.find((t) => t.truckSize === size + "ft")) {
-        trucks.push({ truckSize: size + "ft", price, description: "" });
-      }
-    }
-  }
-
-  const rateMatch = text.match(/up to (\d+) days? of use and ([\d,]+) miles/i);
-  const includedDays = rateMatch ? parseInt(rateMatch[1]) : 0;
-  const includedMiles = rateMatch ? parseInt(rateMatch[2].replace(",", "")) : 0;
-  const available = trucks.filter((t) => t.price !== null);
-
-  if (available.length === 0) {
-    return {
-      success: false,
-      pickup,
-      dropoff: tripType === "one_way" ? dropoff : null,
-      date,
-      tripType,
-      trucks: [],
-      error: html.includes("Rates for")
-        ? "Found rates page but couldn't parse prices. Enter costs manually."
-        : "Could not retrieve U-Haul pricing. Enter costs manually.",
-    };
-  }
-
-  return {
-    success: true,
-    pickup,
-    dropoff: tripType === "one_way" ? dropoff : null,
-    date,
-    tripType,
-    trucks: available,
-    includedDays: includedDays || undefined,
-    includedMiles: includedMiles || undefined,
-  };
-}
-
 interface UhaulPriceResult {
   truckSize: string;
   price: number | null;
@@ -454,7 +253,7 @@ async function fetchViaScrapFly(
     console.log("[scrapfly] No SCRAPFLY_API_KEY set, skipping");
     return null;
   }
-  console.log("[scrapfly] Using ScrapFly fallback for:", pickup, "->", dropoff);
+  console.log("[scrapfly] Using ScrapFly for:", pickup, "->", dropoff);
 
   try {
     const sessionId = "uhaul_" + Date.now();
@@ -471,8 +270,7 @@ async function fetchViaScrapFly(
     const s1 = await fetch(`${sfBase}?${s1Params}`);
     await s1.arrayBuffer();
 
-    // Step 2: Submit the search form via POST
-    // ScrapFly POST: send the form body as the HTTP body of the request to ScrapFly
+    // Step 2: Submit the search form via POST through ScrapFly
     const s2Params = new URLSearchParams({
       key: apiKey,
       url: "https://www.uhaul.com/EquipmentSearch/",
@@ -503,7 +301,7 @@ async function fetchViaScrapFly(
     });
     await s2.arrayBuffer();
 
-    // Step 3: Get the rates page
+    // Step 3: Get the rates page (with JS rendering + 3s wait)
     const s3Params = new URLSearchParams({
       key: apiKey,
       url: "https://www.uhaul.com/Reservations/RatesTrucks/",
@@ -511,20 +309,17 @@ async function fetchViaScrapFly(
       render_js: "true",
       country: "us",
       session: sessionId,
-      wait: "3000", // wait 3s for JS to render rates
+      wait: "3000",
     });
     const s3 = await fetch(`${sfBase}?${s3Params}`);
     const data = await s3.json() as any;
     const html = data?.result?.content || "";
 
-    // Debug: print first 800 chars so we can see what page we're actually getting
-    console.log("[scrapfly] Step3 URL returned:", data?.result?.url || "unknown");
-    console.log("[scrapfly] Step3 content preview:", html.substring(0, 800));
-    console.log("[scrapfly] Step3 content length:", html.length, "has 'Rates for':", html.includes("Rates for"), "has 'truck':", html.toLowerCase().includes("truck"), "has '$':", html.includes("$"));
+    console.log("[scrapfly] URL returned:", data?.result?.url || "unknown");
+    console.log("[scrapfly] Content length:", html.length, "| has 'Rates for':", html.includes("Rates for"));
 
-    // Return content if it has ANY pricing signals — don't just look for "Rates for"
-    if (html.length > 5000) return html; // return whatever we got and let parser handle it
-    if (!html) console.log("[scrapfly] No content. Response:", JSON.stringify(data).substring(0, 500));
+    if (html.length > 5000) return html;
+    if (!html) console.log("[scrapfly] Empty response:", JSON.stringify(data).substring(0, 500));
     return null;
   } catch (err: any) {
     console.log("[scrapfly] Error:", err.message || err);

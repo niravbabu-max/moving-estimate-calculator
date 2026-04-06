@@ -3,7 +3,7 @@ import type { Server } from "http";
 import { storage } from "./storage";
 import { insertEstimateSchema } from "@shared/schema";
 import { generateQuotePDF } from "./pdf";
-import { lookupUhaulPricing, lookupUhaulOneWayPlaywright, suggestLocations } from "./uhaul";
+import { lookupUhaulPricing, suggestLocations } from "./uhaul";
 
 export async function registerRoutes(httpServer: Server, app: Express) {
   app.post("/api/estimates", (req, res) => {
@@ -58,20 +58,10 @@ export async function registerRoutes(httpServer: Server, app: Express) {
       if (tripType === "one_way" && !dropoff) {
         return res.status(400).json({ error: "Drop-off location is required for one-way trips" });
       }
-      let result;
-      if (tripType === "one_way" || !tripType) {
-        // One-way: use Playwright (most reliable, bypasses bot detection)
-        console.log("[uhaul] Using Playwright for one-way quote");
-        result = await lookupUhaulOneWayPlaywright(pickup, dropoff || "", date);
-        // Fall back to HTTP scraper if Playwright fails
-        if (!result.success) {
-          console.log("[uhaul] Playwright failed, falling back to HTTP scraper");
-          result = await lookupUhaulPricing(pickup, dropoff || "", date, "one_way");
-        }
-      } else {
-        // In-town: use existing HTTP scraper
-        result = await lookupUhaulPricing(pickup, dropoff || "", date, tripType);
-      }
+      // Use HTTP scraper for all trips (falls back to ScrapFly if bot-blocked)
+      const resolvedTripType = (tripType === "one_way" || !tripType) ? "one_way" : tripType;
+      console.log(`[uhaul] Looking up pricing (${resolvedTripType}):`, pickup, "->", dropoff || "local");
+      const result = await lookupUhaulPricing(pickup, dropoff || "", date, resolvedTripType);
       res.json(result);
     } catch (e: any) {
       res.status(500).json({ error: e.message });
