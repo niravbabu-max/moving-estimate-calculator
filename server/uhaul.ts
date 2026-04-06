@@ -1,3 +1,203 @@
+import { chromium, type Browser, type Page } from "playwright";
+
+// ── Singleton browser (reused across requests) ──
+let _browser: Browser | null = null;
+
+async function getBrowser(): Promise<Browser> {
+  if (_browser && _browser.isConnected()) return _browser;
+  _browser = await chromium.launch({
+    headless: true,
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-gpu",
+      "--single-process",
+      "--no-zygote",
+    ],
+  });
+  return _browser;
+}
+
+// ── Playwright-based one-way quote fetcher ──
+export async function lookupUhaulOneWayPlaywright(
+  pickup: string,
+  dropoff: string,
+  date: string // MM/DD/YYYY
+): Promise<UhaulLookupResult> {
+  let page: Page | null = null;
+  try {
+    const browser = await getBrowser();
+    page = await browser.newPage();
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.setExtraHTTPHeaders({
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      "Accept-Language": "en-US,en;q=0.9",
+    });
+
+    console.log("[playwright] Navigating to uhaul.com/Trucks/");
+    await page.goto("https://www.uhaul.com/Trucks/", {
+      waitUntil: "domcontentloaded",
+      timeout: 30000,
+    });
+
+    // Fill pickup location
+    await page.waitForSelector(
+      'input[name="PickupLocation"], #PickupLocation, input[placeholder*="ickup"]',
+      { timeout: 10000 }
+    );
+    const pickupSel =
+      'input[name="PickupLocation"], #PickupLocation, input[placeholder*="ickup"]';
+    await page.fill(pickupSel, pickup);
+    await page.waitForTimeout(500);
+
+    // Fill dropoff location
+    const dropoffSel =
+      'input[name="DropoffLocation"], #DropoffLocation, input[placeholder*="ropoff"], input[placeholder*="eturn"]';
+    await page.fill(dropoffSel, dropoff);
+    await page.waitForTimeout(500);
+
+    // Select one-way if there's a trip type selector
+    try {
+      const oneWayRadio = page.locator(
+        'input[value="one_way"], input[value="OneWay"], label:has-text("One Way")'
+      );
+      if (await oneWayRadio.count() > 0) await oneWayRadio.first().click();
+    } catch {}
+
+    // Fill date
+    const dateSel =
+      'input[name="PickupDate"], #PickupDate, input[type="date"], input[placeholder*="ate"]';
+    try {
+      await page.fill(dateSel, date);
+    } catch {}
+    await page.waitForTimeout(300);
+
+    // Submit the form
+    console.log("[playwright] Submitting search form");
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: "domcontentloaded", timeout: 30000 }),
+      page.click(
+        'button[type="submit"], input[type="submit"], button:has-text("View Rates"), button:has-text("Search")'
+      ),
+    ]);
+
+    // Wait for rates page content
+    console.log("[playwright] Waiting for rates page:", page.url());
+    try {
+      await page.waitForSelector(
+        '[class*="rate"], [class*="truck"], [class*="price"], .rate-card',
+        { timeout: 15000 }
+      );
+    } catch {
+      // May have loaded without those selectors — try to parse anyway
+    }
+
+    const html = await page.content();
+    console.log(
+      "[playwright] Got page content, length:",
+      html.length,
+      "has Rates for:",
+      html.includes("Rates for")
+    );
+
+    // Use existing HTML parser
+    return parseUhaulHtml(html, pickup, dropoff, date, "one_way");
+  } catch (err: any) {
+    console.error("[playwright] Error:", err.message);
+    // If browser died, reset it so next request gets a fresh one
+    _browser = null;
+    return {
+      success: false,
+      pickup,
+      dropoff,
+      date,
+      tripType: "one_way",
+      trucks: [],
+      error: "Playwright fetch failed: " + (err.message || "unknown error"),
+    };
+  } finally {
+    if (page) await page.close().catch(() => {});
+  }
+}
+
+// ── Shared HTML parser (used by both HTTP and Playwright paths) ──
+function parseUhaulHtml(
+  html: string,
+  pickup: string,
+  dropoff: string,
+  date: string,
+  tripType: "one_way" | "in_town"
+): UhaulLookupResult {
+  const text = html
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/\s+/g, " ");
+
+  const trucks: UhaulPriceResult[] = [];
+  const isInTown = tripType === "in_town";
+
+  if (isInTown) {
+    const pattern =
+      /(\d+)'\s*(?:Truck|Cargo Van|Pickup Truck)[\s\S]*?\$([0-9,]+(?:\.\d{2})?)[\s\S]*?plus \$([0-9.]+)\/mile/gi;
+    let m: RegExpExecArray | null;
+    while ((m = pattern.exec(text)) !== null) {
+      const size = m[1];
+      const baseRate = parseFloat(m[2].replace(",", ""));
+      const mileageRate = parseFloat(m[3]);
+      if (!trucks.find((t) => t.truckSize === size + "ft")) {
+        trucks.push({ truckSize: size + "ft", price: baseRate, description: "", baseRate, mileageRate });
+      }
+    }
+  } else {
+    const pattern =
+      /(\d+)'\s*(?:Truck|Cargo Van|Pickup Truck)[\s\S]*?(?:\$([\d,]+\.\d{2})|Not available)/gi;
+    let m: RegExpExecArray | null;
+    while ((m = pattern.exec(text)) !== null) {
+      const size = m[1];
+      const price = m[2] ? parseFloat(m[2].replace(",", "")) : null;
+      if (!trucks.find((t) => t.truckSize === size + "ft")) {
+        trucks.push({ truckSize: size + "ft", price, description: "" });
+      }
+    }
+  }
+
+  const rateMatch = text.match(/up to (\d+) days? of use and ([\d,]+) miles/i);
+  const includedDays = rateMatch ? parseInt(rateMatch[1]) : 0;
+  const includedMiles = rateMatch ? parseInt(rateMatch[2].replace(",", "")) : 0;
+  const available = trucks.filter((t) => t.price !== null);
+
+  if (available.length === 0) {
+    return {
+      success: false,
+      pickup,
+      dropoff: tripType === "one_way" ? dropoff : null,
+      date,
+      tripType,
+      trucks: [],
+      error: html.includes("Rates for")
+        ? "Found rates page but couldn't parse prices. Enter costs manually."
+        : "Could not retrieve U-Haul pricing. Enter costs manually.",
+    };
+  }
+
+  return {
+    success: true,
+    pickup,
+    dropoff: tripType === "one_way" ? dropoff : null,
+    date,
+    tripType,
+    trucks: available,
+    includedDays: includedDays || undefined,
+    includedMiles: includedMiles || undefined,
+  };
+}
+
 interface UhaulPriceResult {
   truckSize: string;
   price: number | null;

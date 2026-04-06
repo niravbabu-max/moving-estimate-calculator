@@ -8,7 +8,8 @@
     "build": "tsx script/build.ts",
     "start": "NODE_ENV=production node dist/index.cjs",
     "check": "tsc",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "postinstall": "npx playwright install --with-deps chromium"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -59,6 +60,7 @@
     "passport": "^0.7.0",
     "passport-local": "^1.0.0",
     "pdfkit": "^0.18.0",
+    "playwright": "^1.59.1",
     "react": "^18.3.1",
     "react-day-picker": "^8.10.1",
     "react-dom": "^18.3.1",
