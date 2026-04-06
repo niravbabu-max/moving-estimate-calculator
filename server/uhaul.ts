@@ -32,7 +32,7 @@ export async function suggestLocations(
   return resp.json();
 }
 
-// Full browser-like headers to avoid being blocked
+// Full browser-like headers
 const BROWSER_HEADERS: Record<string, string> = {
   "User-Agent":
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -56,7 +56,6 @@ function getCookies(headers: Headers): string {
   if (raw.length > 0) {
     return raw.map((c: string) => c.split(";")[0]).join("; ");
   }
-  // Fallback for environments where getSetCookie is unavailable
   const sc = headers.get("set-cookie") || "";
   if (!sc) return "";
   return sc
@@ -113,23 +112,24 @@ export async function lookupUhaulPricing(
     await s2.arrayBuffer();
 
     // Step 3: Fetch rates page
-    const s3 = await fetch(
-      "https://www.uhaul.com/Reservations/RatesTrucks/",
-      {
-        headers: {
-          ...BROWSER_HEADERS,
-          Referer: "https://www.uhaul.com/Trucks/",
-          Cookie: cookies,
-        },
-        redirect: "follow",
-      }
-    );
+    const s3 = await fetch("https://www.uhaul.com/Reservations/RatesTrucks/", {
+      headers: {
+        ...BROWSER_HEADERS,
+        Referer: "https://www.uhaul.com/Trucks/",
+        Cookie: cookies,
+      },
+      redirect: "follow",
+    });
 
     let html = s3.ok ? await s3.text() : "";
 
-    // If direct fetch didn't return rates (bot detection), try ScrapFly
+    // If direct fetch didn't return rates, try ScrapFly with JS form interaction
     if (!html.includes("Rates for")) {
-      const sfHtml = await fetchViaScrapFly(pickup, tripType === "one_way" ? dropoff : "", date);
+      const sfHtml = await fetchViaScrapFly(
+        pickup,
+        tripType === "one_way" ? dropoff : "",
+        date
+      );
       if (sfHtml) html = sfHtml;
     }
 
@@ -145,90 +145,7 @@ export async function lookupUhaulPricing(
       };
     }
 
-    // Strip HTML to text
-    const text = html
-      .replace(/<[^>]+>/g, " ")
-      .replace(/&#39;/g, "'")
-      .replace(/&amp;/g, "&")
-      .replace(/&lt;/g, "<")
-      .replace(/&gt;/g, ">")
-      .replace(/&quot;/g, '"')
-      .replace(/\s+/g, " ");
-
-    const trucks: UhaulPriceResult[] = [];
-    const isInTown = tripType === "in_town";
-
-    if (isInTown) {
-      // In-town: base rate + per-mile
-      const pattern =
-        /(\d+)'\s*(?:Truck|Cargo Van|Pickup Truck)[\s\S]*?\$([0-9,]+(?:\.\d{2})?)[\s\S]*?plus \$([0-9.]+)\/mile/gi;
-      let m: RegExpExecArray | null;
-      while ((m = pattern.exec(text)) !== null) {
-        const size = m[1];
-        const baseRate = parseFloat(m[2].replace(",", ""));
-        const mileageRate = parseFloat(m[3]);
-        if (!trucks.find((t) => t.truckSize === size + "ft")) {
-          const desc = extractDescription(text, m.index);
-          trucks.push({
-            truckSize: size + "ft",
-            price: baseRate,
-            description: desc,
-            baseRate,
-            mileageRate,
-          });
-        }
-      }
-    } else {
-      // One-way: flat price
-      const pattern =
-        /(\d+)'\s*(?:Truck|Cargo Van|Pickup Truck)[\s\S]*?(?:\$([\d,]+\.\d{2})|Not available)/gi;
-      let m: RegExpExecArray | null;
-      while ((m = pattern.exec(text)) !== null) {
-        const size = m[1];
-        const price = m[2] ? parseFloat(m[2].replace(",", "")) : null;
-        if (!trucks.find((t) => t.truckSize === size + "ft")) {
-          const desc = extractDescription(text, m.index);
-          trucks.push({ truckSize: size + "ft", price, description: desc });
-        }
-      }
-    }
-
-    // Included days/miles (one-way)
-    const rateMatch = text.match(
-      /up to (\d+) days? of use and ([\d,]+) miles/i
-    );
-    const includedDays = rateMatch ? parseInt(rateMatch[1]) : 0;
-    const includedMiles = rateMatch
-      ? parseInt(rateMatch[2].replace(",", ""))
-      : 0;
-
-    const available = trucks.filter((t) => t.price !== null);
-
-    if (available.length === 0) {
-      const hasRates = text.includes("Rates for");
-      return {
-        success: false,
-        pickup,
-        dropoff: tripType === "one_way" ? dropoff : null,
-        date,
-        tripType,
-        trucks: [],
-        error: hasRates
-          ? `Found rates page but couldn't parse prices. Try a different date or enter costs manually.`
-          : `U-Haul didn't return pricing (${html.length} bytes). Try again or enter costs manually.`,
-      };
-    }
-
-    return {
-      success: true,
-      pickup,
-      dropoff: tripType === "one_way" ? dropoff : null,
-      date,
-      tripType,
-      trucks: available,
-      includedDays: includedDays || undefined,
-      includedMiles: includedMiles || undefined,
-    };
+    return parseUhaulHtml(html, pickup, dropoff, date, tripType);
   } catch (err: any) {
     return {
       success: false,
@@ -242,7 +159,8 @@ export async function lookupUhaulPricing(
   }
 }
 
-// ScrapFly fallback for when direct HTTP is blocked by U-Haul's bot detection
+// ScrapFly: single JS-rendered request that fills + submits the form in-browser.
+// This avoids the multi-step session cookie problem entirely.
 async function fetchViaScrapFly(
   pickup: string,
   dropoff: string,
@@ -253,78 +171,155 @@ async function fetchViaScrapFly(
     console.log("[scrapfly] No SCRAPFLY_API_KEY set, skipping");
     return null;
   }
-  console.log("[scrapfly] Using ScrapFly for:", pickup, "->", dropoff);
+  console.log("[scrapfly] JS form interaction for:", pickup, "->", dropoff);
 
   try {
-    const sessionId = "uhaul_" + Date.now();
     const sfBase = "https://api.scrapfly.io/scrape";
 
-    // Step 1: Visit trucks page (establishes session cookies)
-    const s1Params = new URLSearchParams({
+    // Single request: load /Trucks/, fill the form via JS, submit, wait for rates page
+    const actions = [
+      // Wait for the search form to be ready
+      { type: "WAIT_FOR_SELECTOR", selector: "input[name='PickupLocation'], #PickupLocation", timeout: 10000 },
+      // Fill pickup, dropoff, date and submit via JavaScript
+      {
+        type: "EVALUATE",
+        script: `
+          (function() {
+            var pInput = document.querySelector("input[name='PickupLocation']") || document.querySelector("#PickupLocation");
+            var dInput = document.querySelector("input[name='DropoffLocation']") || document.querySelector("#DropoffLocation");
+            var dtInput = document.querySelector("input[name='PickupDate']") || document.querySelector("#PickupDate");
+            if (pInput) { pInput.value = ${JSON.stringify(pickup)}; pInput.dispatchEvent(new Event('change', {bubbles:true})); }
+            if (dInput) { dInput.value = ${JSON.stringify(dropoff)}; dInput.dispatchEvent(new Event('change', {bubbles:true})); }
+            if (dtInput) { dtInput.value = ${JSON.stringify(date)}; dtInput.dispatchEvent(new Event('change', {bubbles:true})); }
+            var form = document.querySelector("form[action*='EquipmentSearch'], form[action*='equipment']") || document.querySelector("form");
+            if (form) { form.submit(); }
+          })();
+        `,
+      },
+      // Wait for navigation to rates page (8 seconds for JS + server round-trip)
+      { type: "WAIT", milliseconds: 8000 },
+    ];
+
+    const params = new URLSearchParams({
       key: apiKey,
       url: "https://www.uhaul.com/Trucks/",
       asp: "true",
-      country: "us",
-      session: sessionId,
-    });
-    const s1 = await fetch(`${sfBase}?${s1Params}`);
-    await s1.arrayBuffer();
-
-    // Step 2: Submit the search form via POST through ScrapFly
-    const s2Params = new URLSearchParams({
-      key: apiKey,
-      url: "https://www.uhaul.com/EquipmentSearch/",
-      asp: "true",
-      country: "us",
-      session: sessionId,
-      "headers[Content-Type]": "application/x-www-form-urlencoded",
-      "headers[X-Requested-With]": "XMLHttpRequest",
-      "headers[Referer]": "https://www.uhaul.com/Trucks/",
-      "headers[Origin]": "https://www.uhaul.com",
-    });
-
-    const formBody = new URLSearchParams({
-      Scenario: "TruckOnly",
-      IsActionFrom: "False",
-      UsedGeocoded: "false",
-      PreviouslySharedLocation: "false",
-      PreviouslySharedLocationDetail: "",
-      PickupLocation: pickup,
-      DropoffLocation: dropoff,
-      PickupDate: date,
-    });
-
-    const s2 = await fetch(`${sfBase}?${s2Params}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: formBody.toString(),
-    });
-    await s2.arrayBuffer();
-
-    // Step 3: Get the rates page (with JS rendering + 3s wait)
-    const s3Params = new URLSearchParams({
-      key: apiKey,
-      url: "https://www.uhaul.com/Reservations/RatesTrucks/",
-      asp: "true",
       render_js: "true",
       country: "us",
-      session: sessionId,
-      wait: "3000",
+      actions: JSON.stringify(actions),
     });
-    const s3 = await fetch(`${sfBase}?${s3Params}`);
-    const data = await s3.json() as any;
+
+    const resp = await fetch(`${sfBase}?${params}`);
+    const data = (await resp.json()) as any;
     const html = data?.result?.content || "";
+    const finalUrl = data?.result?.url || "unknown";
 
-    console.log("[scrapfly] URL returned:", data?.result?.url || "unknown");
-    console.log("[scrapfly] Content length:", html.length, "| has 'Rates for':", html.includes("Rates for"));
+    console.log("[scrapfly] Final URL:", finalUrl);
+    console.log(
+      "[scrapfly] Content length:",
+      html.length,
+      "| has 'Rates for':",
+      html.includes("Rates for"),
+      "| has '$':",
+      html.includes("$")
+    );
 
+    if (!html) {
+      console.log("[scrapfly] Empty response. Error:", JSON.stringify(data?.context?.error || data?.error || "none").substring(0, 300));
+      return null;
+    }
+
+    // Return whatever page we landed on and let the parser handle it
     if (html.length > 5000) return html;
-    if (!html) console.log("[scrapfly] Empty response:", JSON.stringify(data).substring(0, 500));
     return null;
   } catch (err: any) {
     console.log("[scrapfly] Error:", err.message || err);
     return null;
   }
+}
+
+function parseUhaulHtml(
+  html: string,
+  pickup: string,
+  dropoff: string,
+  date: string,
+  tripType: "one_way" | "in_town"
+): UhaulLookupResult {
+  const text = html
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/\s+/g, " ");
+
+  const trucks: UhaulPriceResult[] = [];
+  const isInTown = tripType === "in_town";
+
+  if (isInTown) {
+    const pattern =
+      /(\d+)'\s*(?:Truck|Cargo Van|Pickup Truck)[\s\S]*?\$([0-9,]+(?:\.\d{2})?)[\s\S]*?plus \$([0-9.]+)\/mile/gi;
+    let m: RegExpExecArray | null;
+    while ((m = pattern.exec(text)) !== null) {
+      const size = m[1];
+      const baseRate = parseFloat(m[2].replace(",", ""));
+      const mileageRate = parseFloat(m[3]);
+      if (!trucks.find((t) => t.truckSize === size + "ft")) {
+        const desc = extractDescription(text, m.index);
+        trucks.push({
+          truckSize: size + "ft",
+          price: baseRate,
+          description: desc,
+          baseRate,
+          mileageRate,
+        });
+      }
+    }
+  } else {
+    const pattern =
+      /(\d+)'\s*(?:Truck|Cargo Van|Pickup Truck)[\s\S]*?(?:\$([\d,]+\.\d{2})|Not available)/gi;
+    let m: RegExpExecArray | null;
+    while ((m = pattern.exec(text)) !== null) {
+      const size = m[1];
+      const price = m[2] ? parseFloat(m[2].replace(",", "")) : null;
+      if (!trucks.find((t) => t.truckSize === size + "ft")) {
+        const desc = extractDescription(text, m.index);
+        trucks.push({ truckSize: size + "ft", price, description: desc });
+      }
+    }
+  }
+
+  const rateMatch = text.match(/up to (\d+) days? of use and ([\d,]+) miles/i);
+  const includedDays = rateMatch ? parseInt(rateMatch[1]) : 0;
+  const includedMiles = rateMatch ? parseInt(rateMatch[2].replace(",", "")) : 0;
+  const available = trucks.filter((t) => t.price !== null);
+
+  if (available.length === 0) {
+    const hasRates = text.includes("Rates for");
+    return {
+      success: false,
+      pickup,
+      dropoff: tripType === "one_way" ? dropoff : null,
+      date,
+      tripType,
+      trucks: [],
+      error: hasRates
+        ? "Found rates page but couldn't parse prices. Try a different date or enter costs manually."
+        : `U-Haul didn't return pricing (${html.length} bytes). Try again or enter costs manually.`,
+    };
+  }
+
+  return {
+    success: true,
+    pickup,
+    dropoff: tripType === "one_way" ? dropoff : null,
+    date,
+    tripType,
+    trucks: available,
+    includedDays: includedDays || undefined,
+    includedMiles: includedMiles || undefined,
+  };
 }
 
 function extractDescription(text: string, idx: number): string {
