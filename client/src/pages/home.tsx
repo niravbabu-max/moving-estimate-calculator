@@ -322,7 +322,7 @@ export default function Home() {
     }
   };
 
-  // Fetch U-Haul pricing
+  // Fetch U-Haul pricing — tries server first, falls back to client-side
   const handleFetchUhaul = async () => {
     setFetchingUhaul(true);
     setFetchedTrucks(null);
@@ -331,8 +331,10 @@ export default function Home() {
     try {
       const [yr, mo, dy] = moveDate.split("-");
       const formattedDate = `${mo}/${dy}/${yr}`;
+
+      // Try server-side first
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 90000);
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
       const resp = await fetch(`${API_BASE}/api/uhaul-pricing`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -346,19 +348,23 @@ export default function Home() {
       });
       clearTimeout(timeoutId);
       const data = await resp.json();
+
       if (data.success && data.trucks?.length > 0) {
         setFetchedTrucks(data.trucks);
         setUhaulMeta({ includedDays: data.includedDays, includedMiles: data.includedMiles });
         toast({ title: "U-Haul pricing loaded", description: `Found pricing for ${data.trucks.length} truck sizes.` });
-      } else {
-        setUhaulError(data.error || "Could not retrieve pricing. Try again or enter manually.");
+        return;
       }
+
+      setUhaulError(data.error || "Could not retrieve pricing. Enter costs manually below.");
     } catch {
       setUhaulError("Failed to connect. Please try again.");
     } finally {
       setFetchingUhaul(false);
     }
   };
+
+
 
   // Helper: format currency
   const fmt = (n: number) => "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });

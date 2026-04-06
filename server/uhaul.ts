@@ -112,51 +112,28 @@ export async function lookupUhaulPricing(
     if (s2cookies) cookies = cookies + "; " + s2cookies;
     await s2.arrayBuffer();
 
-    // Step 3: Fetch rates page (with retry for bot-detection challenges)
-    let html = "";
-    for (let attempt = 0; attempt < 3; attempt++) {
-      if (attempt > 0) {
-        // Wait before retry, and re-do the form POST to refresh the session
-        await new Promise((r) => setTimeout(r, 1000 * attempt));
-        const retryPost = await fetch("https://www.uhaul.com/EquipmentSearch/", {
-          method: "POST",
-          headers: {
-            ...BROWSER_HEADERS,
-            "Content-Type": "application/x-www-form-urlencoded",
-            "X-Requested-With": "XMLHttpRequest",
-            Referer: "https://www.uhaul.com/Trucks/",
-            Origin: "https://www.uhaul.com",
-            Cookie: cookies,
-            "Sec-Fetch-Dest": "empty",
-            "Sec-Fetch-Mode": "cors",
-            "Sec-Fetch-Site": "same-origin",
-          },
-          body: formBody.toString(),
-          redirect: "follow",
-        });
-        const retryCookies = getCookies(retryPost.headers);
-        if (retryCookies) cookies = cookies + "; " + retryCookies;
-        await retryPost.arrayBuffer();
+    // Step 3: Fetch rates page
+    const s3 = await fetch(
+      "https://www.uhaul.com/Reservations/RatesTrucks/",
+      {
+        headers: {
+          ...BROWSER_HEADERS,
+          Referer: "https://www.uhaul.com/Trucks/",
+          Cookie: cookies,
+        },
+        redirect: "follow",
       }
+    );
 
-      const s3 = await fetch(
-        "https://www.uhaul.com/Reservations/RatesTrucks/",
-        {
-          headers: {
-            ...BROWSER_HEADERS,
-            Referer: "https://www.uhaul.com/Trucks/",
-            Cookie: cookies,
-          },
-          redirect: "follow",
-        }
-      );
+    let html = s3.ok ? await s3.text() : "";
 
-      if (!s3.ok) continue;
-      html = await s3.text();
-      if (html.includes("Rates for")) break;
+    // If direct fetch didn't return rates (bot detection), try ScrapFly
+    if (!html.includes("Rates for")) {
+      const sfHtml = await fetchViaScrapFly(pickup, tripType === "one_way" ? dropoff : "", date);
+      if (sfHtml) html = sfHtml;
     }
 
-    if (!html) {
+    if (!html || !html.includes("Rates for")) {
       return {
         success: false,
         pickup,
@@ -164,7 +141,7 @@ export async function lookupUhaulPricing(
         date,
         tripType,
         trucks: [],
-        error: "U-Haul did not respond. Try again or enter costs manually.",
+        error: "Could not retrieve U-Haul pricing. Enter costs manually below.",
       };
     }
 
@@ -262,6 +239,88 @@ export async function lookupUhaulPricing(
       trucks: [],
       error: err.message || "Failed to fetch U-Haul pricing",
     };
+  }
+}
+
+// ScrapFly fallback for when direct HTTP is blocked by U-Haul's bot detection
+async function fetchViaScrapFly(
+  pickup: string,
+  dropoff: string,
+  date: string
+): Promise<string | null> {
+  const apiKey = process.env.SCRAPFLY_API_KEY;
+  if (!apiKey) return null;
+
+  try {
+    // Build the U-Haul URL with the search parameters
+    // ScrapFly will handle cookies, sessions, and bot detection
+    const targetUrl = "https://www.uhaul.com/Trucks/";
+
+    // First, use ScrapFly to submit the search and get the rates page
+    // We use the session feature so cookies persist across requests
+    const sessionId = "uhaul_" + Date.now();
+
+    // Step 1: Visit trucks page (establishes session)
+    await fetch(
+      `https://api.scrapfly.io/scrape?` +
+        new URLSearchParams({
+          key: apiKey,
+          url: targetUrl,
+          asp: "true",
+          country: "us",
+          session: sessionId,
+        }),
+    );
+
+    // Step 2: Submit the search form
+    const formParams = new URLSearchParams({
+      Scenario: "TruckOnly",
+      IsActionFrom: "False",
+      UsedGeocoded: "false",
+      PreviouslySharedLocation: "false",
+      PreviouslySharedLocationDetail: "",
+      PickupLocation: pickup,
+      DropoffLocation: dropoff,
+      PickupDate: date,
+    });
+
+    await fetch(
+      `https://api.scrapfly.io/scrape?` +
+        new URLSearchParams({
+          key: apiKey,
+          url: "https://www.uhaul.com/EquipmentSearch/",
+          asp: "true",
+          country: "us",
+          session: sessionId,
+          method: "POST",
+          body: formParams.toString(),
+          headers: JSON.stringify({
+            "Content-Type": "application/x-www-form-urlencoded",
+            "X-Requested-With": "XMLHttpRequest",
+            Referer: "https://www.uhaul.com/Trucks/",
+            Origin: "https://www.uhaul.com",
+          }),
+        }),
+    );
+
+    // Step 3: Get the rates page
+    const s3 = await fetch(
+      `https://api.scrapfly.io/scrape?` +
+        new URLSearchParams({
+          key: apiKey,
+          url: "https://www.uhaul.com/Reservations/RatesTrucks/",
+          asp: "true",
+          country: "us",
+          session: sessionId,
+        }),
+    );
+
+    const data = await s3.json();
+    const html = data?.result?.content || "";
+    if (html.includes("Rates for")) return html;
+    return null;
+  } catch {
+    return null;
   }
 }
 
