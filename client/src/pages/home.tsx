@@ -821,7 +821,17 @@ export default function Home() {
                       <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
                       <div>
                         <p className="text-xs text-red-700 dark:text-red-400">{uhaulError}</p>
-                        <p className="text-xs text-red-500 mt-1">You can enter costs manually below.</p>
+                        <div className="flex flex-wrap items-center gap-x-1 mt-1">
+                          <p className="text-xs text-red-500">Enter costs manually below, or</p>
+                          <a
+                            href={`https://www.uhaul.com/Trucks/?PickupLocation=${encodeURIComponent(pickupLocation)}${tripType === "one_way" && dropoffLocation ? `&DropoffLocation=${encodeURIComponent(dropoffLocation)}` : ""}${moveDate ? `&PickupDate=${encodeURIComponent((() => { const [yr, mo, dy] = moveDate.split("-"); return `${mo}/${dy}/${yr}`; })())}` : ""}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                          >
+                            get quote on U-Haul →
+                          </a>
+                        </div>
                       </div>
                     </div>
                   )}
