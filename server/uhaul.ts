@@ -508,14 +508,22 @@ async function fetchViaScrapFly(
       key: apiKey,
       url: "https://www.uhaul.com/Reservations/RatesTrucks/",
       asp: "true",
+      render_js: "true",
       country: "us",
       session: sessionId,
+      wait: "3000", // wait 3s for JS to render rates
     });
     const s3 = await fetch(`${sfBase}?${s3Params}`);
     const data = await s3.json() as any;
     const html = data?.result?.content || "";
-    console.log("[scrapfly] Step3 status:", s3.status, "content length:", html.length, "has rates:", html.includes("Rates for"));
-    if (html.includes("Rates for")) return html;
+
+    // Debug: print first 800 chars so we can see what page we're actually getting
+    console.log("[scrapfly] Step3 URL returned:", data?.result?.url || "unknown");
+    console.log("[scrapfly] Step3 content preview:", html.substring(0, 800));
+    console.log("[scrapfly] Step3 content length:", html.length, "has 'Rates for':", html.includes("Rates for"), "has 'truck':", html.toLowerCase().includes("truck"), "has '$':", html.includes("$"));
+
+    // Return content if it has ANY pricing signals — don't just look for "Rates for"
+    if (html.length > 5000) return html; // return whatever we got and let parser handle it
     if (!html) console.log("[scrapfly] No content. Response:", JSON.stringify(data).substring(0, 500));
     return null;
   } catch (err: any) {
