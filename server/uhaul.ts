@@ -252,28 +252,35 @@ async function fetchViaScrapFly(
   if (!apiKey) return null;
 
   try {
-    // Build the U-Haul URL with the search parameters
-    // ScrapFly will handle cookies, sessions, and bot detection
-    const targetUrl = "https://www.uhaul.com/Trucks/";
-
-    // First, use ScrapFly to submit the search and get the rates page
-    // We use the session feature so cookies persist across requests
     const sessionId = "uhaul_" + Date.now();
+    const sfBase = "https://api.scrapfly.io/scrape";
 
-    // Step 1: Visit trucks page (establishes session)
-    await fetch(
-      `https://api.scrapfly.io/scrape?` +
-        new URLSearchParams({
-          key: apiKey,
-          url: targetUrl,
-          asp: "true",
-          country: "us",
-          session: sessionId,
-        }),
-    );
+    // Step 1: Visit trucks page (establishes session cookies)
+    const s1Params = new URLSearchParams({
+      key: apiKey,
+      url: "https://www.uhaul.com/Trucks/",
+      asp: "true",
+      country: "us",
+      session: sessionId,
+    });
+    const s1 = await fetch(`${sfBase}?${s1Params}`);
+    await s1.arrayBuffer();
 
-    // Step 2: Submit the search form
-    const formParams = new URLSearchParams({
+    // Step 2: Submit the search form via POST
+    // ScrapFly POST: send the form body as the HTTP body of the request to ScrapFly
+    const s2Params = new URLSearchParams({
+      key: apiKey,
+      url: "https://www.uhaul.com/EquipmentSearch/",
+      asp: "true",
+      country: "us",
+      session: sessionId,
+      "headers[Content-Type]": "application/x-www-form-urlencoded",
+      "headers[X-Requested-With]": "XMLHttpRequest",
+      "headers[Referer]": "https://www.uhaul.com/Trucks/",
+      "headers[Origin]": "https://www.uhaul.com",
+    });
+
+    const formBody = new URLSearchParams({
       Scenario: "TruckOnly",
       IsActionFrom: "False",
       UsedGeocoded: "false",
@@ -284,38 +291,23 @@ async function fetchViaScrapFly(
       PickupDate: date,
     });
 
-    await fetch(
-      `https://api.scrapfly.io/scrape?` +
-        new URLSearchParams({
-          key: apiKey,
-          url: "https://www.uhaul.com/EquipmentSearch/",
-          asp: "true",
-          country: "us",
-          session: sessionId,
-          method: "POST",
-          body: formParams.toString(),
-          headers: JSON.stringify({
-            "Content-Type": "application/x-www-form-urlencoded",
-            "X-Requested-With": "XMLHttpRequest",
-            Referer: "https://www.uhaul.com/Trucks/",
-            Origin: "https://www.uhaul.com",
-          }),
-        }),
-    );
+    const s2 = await fetch(`${sfBase}?${s2Params}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: formBody.toString(),
+    });
+    await s2.arrayBuffer();
 
     // Step 3: Get the rates page
-    const s3 = await fetch(
-      `https://api.scrapfly.io/scrape?` +
-        new URLSearchParams({
-          key: apiKey,
-          url: "https://www.uhaul.com/Reservations/RatesTrucks/",
-          asp: "true",
-          country: "us",
-          session: sessionId,
-        }),
-    );
-
-    const data = await s3.json();
+    const s3Params = new URLSearchParams({
+      key: apiKey,
+      url: "https://www.uhaul.com/Reservations/RatesTrucks/",
+      asp: "true",
+      country: "us",
+      session: sessionId,
+    });
+    const s3 = await fetch(`${sfBase}?${s3Params}`);
+    const data = await s3.json() as any;
     const html = data?.result?.content || "";
     if (html.includes("Rates for")) return html;
     return null;
