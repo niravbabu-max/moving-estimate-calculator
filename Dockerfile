@@ -1,14 +1,12 @@
-# Official Playwright image v1.52.0 — exact version match with npm package
-# Includes Chromium + ALL required system libraries (libglib, libnss, etc.)
+# Use Playwright base image for system libraries (libglib, libnss, etc.)
+# Let postinstall download the exact Chromium revision matching our npm version
 FROM mcr.microsoft.com/playwright:v1.52.0-noble
 
 WORKDIR /app
 
-# Browsers are already in the image — skip postinstall download
-ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
-ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-
 COPY package*.json ./
+
+# npm ci runs postinstall: downloads correct Chromium into /root/.cache/ms-playwright/
 RUN npm ci
 
 COPY . .
