@@ -135,6 +135,9 @@ export default function Home() {
   const [uhaulInsurance, setUhaulInsurance] = useState<string>("100");
   const [uhaulTaxRate, setUhaulTaxRate] = useState<string>("7");
 
+  // Movers override
+  const [moversOverride, setMoversOverride] = useState<string>("");
+
   // Long distance expense state
   const [perDiemRate, setPerDiemRate] = useState<string>("50");
   const [perDiemDays, setPerDiemDays] = useState<string>("");
@@ -165,6 +168,9 @@ export default function Home() {
   // UI state
   const [showHistory, setShowHistory] = useState(false);
   const [generatingPDF, setGeneratingPDF] = useState(false);
+
+  // Reset movers override when weight changes
+  useEffect(() => { setMoversOverride(""); }, [weightLbs]);
 
   // Load time lookup
   const selectedWeight = parseInt(weightLbs) || 0;
@@ -220,8 +226,8 @@ export default function Home() {
 
   // Cost calculations
   const rate = parseFloat(hourlyRate) || 0;
-  const laborCost = loadData ? loadData.totalLaborHours * rate : 0;
-  const packingCost = loadData ? (parseFloat(packingHours) || 0) * rate * loadData.numMovers : 0;
+  const laborCost = loadData ? totalLaborHours * rate : 0;
+  const packingCost = loadData ? (parseFloat(packingHours) || 0) * rate * numMovers : 0;
   const totalUhaulRental = needUhaul ? truckLines.reduce((sum, l) => sum + getTruckRentalCost(l), 0) : 0;
   const totalFuelCost = needUhaul && tripType === "in_town" ? truckLines.reduce((sum, l) => sum + getFuelCost(l.size), 0) : 0;
   const insuranceCost = needUhaul ? (parseFloat(uhaulInsurance) || 0) : 0;
@@ -229,8 +235,12 @@ export default function Home() {
   const uhaulSalesTax = needUhaul ? totalUhaulRental * taxRate : 0;
   const totalUhaulCost = totalUhaulRental + totalFuelCost + insuranceCost + uhaulSalesTax;
 
+  // Effective movers — use override if set, otherwise spreadsheet value
+  const numMovers = moversOverride !== "" ? (parseInt(moversOverride) || loadData?.numMovers || 0) : (loadData?.numMovers || 0);
+  const totalLaborHours = loadData?.totalLaborHours || 0;
+  const hoursPerMover = numMovers > 0 ? totalLaborHours / numMovers : 0;
+
   // Long distance expenses
-  const numMovers = loadData?.numMovers || 0;
   const perDiemTotal = isLongDistance ? numMovers * (parseFloat(perDiemRate) || 0) * (parseFloat(perDiemDays) || 0) : 0;
   const hotelTotal = isLongDistance ? (parseFloat(hotelCost) || 0) : 0;
   const flightTotal = isLongDistance ? (parseFloat(flightCost) || 0) : 0;
@@ -474,7 +484,7 @@ export default function Home() {
                   </div>
                   {packingCost > 0 && loadData && (
                     <p className="text-xs text-muted-foreground">
-                      {packingHours} hrs × ${rate}/hr × {loadData.numMovers} movers = {fmt(packingCost)}
+                      {packingHours} hrs × ${rate}/hr × {numMovers} movers = {fmt(packingCost)}
                     </p>
                   )}
                 </div>
@@ -501,12 +511,27 @@ export default function Home() {
                     <div className="bg-muted/50 rounded-lg p-3 text-center">
                       <Users className="w-4 h-4 mx-auto mb-1 text-muted-foreground" />
                       <p className="text-xs text-muted-foreground">Movers</p>
-                      <p className="text-lg font-semibold text-foreground" data-testid="text-movers">{loadData.numMovers}</p>
+                      <Input
+                        type="number"
+                        min="1"
+                        step="1"
+                        className="text-lg font-semibold text-center bg-transparent border-0 border-b border-border rounded-none px-0 h-auto p-0 mt-1 focus-visible:ring-0"
+                        value={moversOverride !== "" ? moversOverride : loadData.numMovers}
+                        onChange={(e) => setMoversOverride(e.target.value)}
+                        data-testid="input-movers"
+                      />
+                      {moversOverride !== "" && parseInt(moversOverride) !== loadData.numMovers && (
+                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+                          (was {loadData.numMovers})
+                        </p>
+                      )}
                     </div>
                     <div className="bg-muted/50 rounded-lg p-3 text-center">
                       <Clock className="w-4 h-4 mx-auto mb-1 text-muted-foreground" />
-                      <p className="text-xs text-muted-foreground">Hours</p>
-                      <p className="text-lg font-semibold text-foreground" data-testid="text-hours">{loadData.numHours}</p>
+                      <p className="text-xs text-muted-foreground">Hrs / Mover</p>
+                      <p className="text-lg font-semibold text-foreground" data-testid="text-hours">
+                        {hoursPerMover % 1 === 0 ? hoursPerMover : hoursPerMover.toFixed(1)}
+                      </p>
                     </div>
                     <div className="bg-muted/50 rounded-lg p-3 text-center">
                       <Truck className="w-4 h-4 mx-auto mb-1 text-muted-foreground" />
@@ -522,7 +547,7 @@ export default function Home() {
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-muted-foreground">Total Labor Hours</span>
                       <span className="font-semibold text-foreground" data-testid="text-total-labor-hours">
-                        {loadData.totalLaborHours} hrs ({loadData.numMovers} movers × {loadData.numHours} hrs)
+                        {totalLaborHours} hrs ({numMovers} movers × {hoursPerMover % 1 === 0 ? hoursPerMover : hoursPerMover.toFixed(1)} hrs)
                       </span>
                     </div>
                   </div>
@@ -1026,15 +1051,20 @@ export default function Home() {
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Movers</span>
-                        <span className="text-foreground">{loadData.numMovers}</span>
+                        <span className="text-foreground">
+                          {numMovers}
+                          {moversOverride !== "" && parseInt(moversOverride) !== loadData.numMovers && (
+                            <span className="text-xs text-amber-600 dark:text-amber-400 ml-1">(adjusted)</span>
+                          )}
+                        </span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Hours</span>
-                        <span className="text-foreground">{loadData.numHours} hrs</span>
+                        <span className="text-muted-foreground">Hrs / Mover</span>
+                        <span className="text-foreground">{hoursPerMover % 1 === 0 ? hoursPerMover : hoursPerMover.toFixed(1)} hrs</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Total Labor Hours</span>
-                        <span className="text-foreground">{loadData.totalLaborHours} hrs</span>
+                        <span className="text-foreground">{totalLaborHours} hrs</span>
                       </div>
                       <Separator />
                       <div className="flex justify-between text-sm font-medium">
