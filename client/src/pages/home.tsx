@@ -138,6 +138,10 @@ export default function Home() {
   // Movers override
   const [moversOverride, setMoversOverride] = useState<string>("");
 
+  // Drive time (long distance)
+  const [driveTimeHours, setDriveTimeHours] = useState<string>("");
+  const [driveTimeMovers, setDriveTimeMovers] = useState<string>("");
+
   // Long distance expense state
   const [perDiemRate, setPerDiemRate] = useState<string>("50");
   const [perDiemDays, setPerDiemDays] = useState<string>("");
@@ -228,6 +232,7 @@ export default function Home() {
   const rate = parseFloat(hourlyRate) || 0;
   const laborCost = loadData ? totalLaborHours * rate : 0;
   const packingCost = loadData ? (parseFloat(packingHours) || 0) * rate * numMovers : 0;
+  const driveTimeCost = isLongDistance ? (parseFloat(driveTimeHours) || 0) * rate * (parseInt(driveTimeMovers) || 0) : 0;
   const totalUhaulRental = needUhaul ? truckLines.reduce((sum, l) => sum + getTruckRentalCost(l), 0) : 0;
   const totalFuelCost = needUhaul && tripType === "in_town" ? truckLines.reduce((sum, l) => sum + getFuelCost(l.size), 0) : 0;
   const insuranceCost = needUhaul ? (parseFloat(uhaulInsurance) || 0) : 0;
@@ -247,7 +252,7 @@ export default function Home() {
   const miscTotal = isLongDistance ? (parseFloat(miscCost) || 0) : 0;
   const longDistanceExpenses = perDiemTotal + hotelTotal + flightTotal + miscTotal;
 
-  const totalEstimate = laborCost + packingCost + totalUhaulCost + longDistanceExpenses;
+  const totalEstimate = laborCost + packingCost + driveTimeCost + totalUhaulCost + longDistanceExpenses;
 
   // History
   const { data: history = [] } = useQuery<Estimate[]>({ queryKey: ["/api/estimates"] });
@@ -566,6 +571,52 @@ export default function Home() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {/* Drive Time */}
+                  <div className="space-y-2">
+                    <Label className="font-medium">Drive Time Labor</Label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Drive Time (hours)</Label>
+                        <div className="relative">
+                          <Clock className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.5"
+                            className="pl-7"
+                            placeholder="e.g. 8"
+                            value={driveTimeHours}
+                            onChange={(e) => setDriveTimeHours(e.target.value)}
+                            data-testid="input-drive-time-hours"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Movers on Drive</Label>
+                        <div className="relative">
+                          <Users className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                          <Input
+                            type="number"
+                            min="1"
+                            step="1"
+                            className="pl-7"
+                            placeholder="e.g. 2"
+                            value={driveTimeMovers}
+                            onChange={(e) => setDriveTimeMovers(e.target.value)}
+                            data-testid="input-drive-time-movers"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    {driveTimeCost > 0 && (
+                      <p className="text-xs text-violet-600 dark:text-violet-400">
+                        {driveTimeHours} hrs × ${rate}/hr × {driveTimeMovers} movers = {fmt(driveTimeCost)}
+                      </p>
+                    )}
+                  </div>
+
+                  <Separator />
+
                   {/* Per Diem */}
                   <div className="space-y-2">
                     <Label className="font-medium">Per Diem</Label>
@@ -664,9 +715,15 @@ export default function Home() {
                   </div>
 
                   {/* Subtotal */}
-                  {longDistanceExpenses > 0 && (
+                  {(driveTimeCost > 0 || longDistanceExpenses > 0) && (
                     <div className="p-3 bg-violet-50 dark:bg-violet-950/20 rounded-lg border border-violet-200 dark:border-violet-800">
                       <div className="space-y-1">
+                        {driveTimeCost > 0 && (
+                          <div className="flex justify-between text-xs">
+                            <span className="text-violet-600 dark:text-violet-400">Drive Time Labor</span>
+                            <span className="text-violet-700 dark:text-violet-300">{fmt(driveTimeCost)}</span>
+                          </div>
+                        )}
                         {perDiemTotal > 0 && (
                           <div className="flex justify-between text-xs">
                             <span className="text-violet-600 dark:text-violet-400">Per Diem</span>
@@ -694,7 +751,7 @@ export default function Home() {
                         <Separator className="bg-violet-200 dark:bg-violet-800" />
                         <div className="flex justify-between text-sm font-semibold">
                           <span className="text-violet-700 dark:text-violet-300">LD Expenses Total</span>
-                          <span className="text-violet-700 dark:text-violet-300">{fmt(longDistanceExpenses)}</span>
+                          <span className="text-violet-700 dark:text-violet-300">{fmt(driveTimeCost + longDistanceExpenses)}</span>
                         </div>
                       </div>
                     </div>
@@ -1071,6 +1128,14 @@ export default function Home() {
                         <span className="text-foreground">Labor Cost</span>
                         <span className="text-foreground" data-testid="text-labor-cost">{fmt(laborCost)}</span>
                       </div>
+                      {driveTimeCost > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground flex items-center gap-1">
+                            <Truck className="w-3 h-3" />Drive Time Labor
+                          </span>
+                          <span className="text-foreground">{fmt(driveTimeCost)}</span>
+                        </div>
+                      )}
                       {packingCost > 0 && (
                         <div className="flex justify-between text-sm">
                           <span className="text-muted-foreground flex items-center gap-1">
