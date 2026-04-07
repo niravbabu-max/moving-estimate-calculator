@@ -228,6 +228,11 @@ export default function Home() {
     [getTruckRentalCost, getFuelCost, tripType]
   );
 
+  // Effective movers — use override if set, otherwise spreadsheet value
+  const numMovers = moversOverride !== "" ? (parseInt(moversOverride) || loadData?.numMovers || 0) : (loadData?.numMovers || 0);
+  const totalLaborHours = loadData?.totalLaborHours || 0;
+  const hoursPerMover = numMovers > 0 ? totalLaborHours / numMovers : 0;
+
   // Cost calculations
   const rate = parseFloat(hourlyRate) || 0;
   const laborCost = loadData ? totalLaborHours * rate : 0;
@@ -239,11 +244,6 @@ export default function Home() {
   const taxRate = needUhaul ? (parseFloat(uhaulTaxRate) || 0) / 100 : 0;
   const uhaulSalesTax = needUhaul ? totalUhaulRental * taxRate : 0;
   const totalUhaulCost = totalUhaulRental + totalFuelCost + insuranceCost + uhaulSalesTax;
-
-  // Effective movers — use override if set, otherwise spreadsheet value
-  const numMovers = moversOverride !== "" ? (parseInt(moversOverride) || loadData?.numMovers || 0) : (loadData?.numMovers || 0);
-  const totalLaborHours = loadData?.totalLaborHours || 0;
-  const hoursPerMover = numMovers > 0 ? totalLaborHours / numMovers : 0;
 
   // Long distance expenses
   const perDiemTotal = isLongDistance ? numMovers * (parseFloat(perDiemRate) || 0) * (parseFloat(perDiemDays) || 0) : 0;
