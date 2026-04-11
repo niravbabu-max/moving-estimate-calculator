@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Maryland Traffic Points Reference — BEAT-TIX Staff Guide</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0a0a0a; color: #e8e8e8; padding: 20px; }
+  .header { background: linear-gradient(135deg, #cc0000, #8b0000); padding: 30px; border-radius: 12px; margin-bottom: 24px; text-align: center; }
+  .header h1 { font-size: 2em; font-weight: 900; color: #fff; letter-spacing: -1px; }
+  .header p { color: #ffcccc; margin-top: 8px; font-size: 0.95em; }
+  .badge { display: inline-block; background: #fff; color: #cc0000; font-weight: 800; padding: 4px 12px; border-radius: 20px; font-size: 0.8em; margin-top: 10px; }
+
+  .system-box { background: #1a1a1a; border: 1px solid #333; border-radius: 10px; padding: 20px; margin-bottom: 24px; }
+  .system-box h2 { color: #ff4444; font-size: 1.1em; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
+  .threshold-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+  .threshold-card { background: #222; border-radius: 8px; padding: 14px; text-align: center; border: 1px solid #333; }
+  .threshold-card .pts { font-size: 1.8em; font-weight: 900; }
+  .threshold-card .action { font-size: 0.8em; color: #aaa; margin-top: 4px; }
+  .pts-3 { color: #f59e0b; }
+  .pts-5 { color: #f97316; }
+  .pts-8 { color: #ef4444; }
+  .pts-12 { color: #dc2626; }
+
+  .rules-list { list-style: none; margin-top: 12px; }
+  .rules-list li { padding: 6px 0; border-bottom: 1px solid #2a2a2a; font-size: 0.9em; color: #ccc; }
+  .rules-list li:last-child { border: none; }
+  .rules-list li::before { content: "→ "; color: #ff4444; }
+
+  .section { margin-bottom: 28px; }
+  .section-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; padding: 10px 16px; border-radius: 8px; }
+  .section-header.pts1 { background: #1e2a1e; border-left: 4px solid #22c55e; }
+  .section-header.pts2 { background: #1e2a1e; border-left: 4px solid #84cc16; }
+  .section-header.pts3 { background: #2a2410; border-left: 4px solid #f59e0b; }
+  .section-header.pts5 { background: #2a1a10; border-left: 4px solid #f97316; }
+  .section-header.pts6 { background: #2a1010; border-left: 4px solid #ef4444; }
+  .section-header.pts8 { background: #2a0a0a; border-left: 4px solid #dc2626; }
+  .section-header.pts12 { background: #1a0000; border-left: 4px solid #7f1d1d; }
+  .section-header .pt-badge { font-size: 2em; font-weight: 900; min-width: 60px; }
+  .section-header h3 { font-size: 1.05em; font-weight: 700; }
+  .section-header p { font-size: 0.8em; color: #999; margin-top: 2px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.88em; background: #111; border-radius: 8px; overflow: hidden; }
+  th { background: #1e1e1e; padding: 10px 12px; text-align: left; color: #aaa; font-weight: 600; font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.5px; }
+  td { padding: 9px 12px; border-bottom: 1px solid #1e1e1e; color: #ddd; vertical-align: top; }
+  tr:last-child td { border: none; }
+  tr:hover td { background: #161616; }
+  .jail-badge { background: #7f1d1d; color: #fca5a5; padding: 2px 8px; border-radius: 4px; font-size: 0.78em; font-weight: 600; white-space: nowrap; }
+  .stat { color: #60a5fa; font-size: 0.85em; font-family: monospace; }
+
+  .no-pts-section { background: #111; border: 1px dashed #333; border-radius: 8px; padding: 16px; margin-bottom: 28px; }
+  .no-pts-section h3 { color: #6b7280; margin-bottom: 10px; font-size: 0.9em; text-transform: uppercase; }
+
+  .opportunity-section { background: #0f1a2a; border: 1px solid #1e3a5f; border-radius: 10px; padding: 20px; margin-bottom: 28px; }
+  .opportunity-section h2 { color: #60a5fa; margin-bottom: 14px; font-size: 1.05em; text-transform: uppercase; letter-spacing: 1px; }
+
+  .mail-section { background: #0f1a0f; border: 1px solid #14532d; border-radius: 10px; padding: 20px; margin-bottom: 28px; }
+  .mail-section h2 { color: #4ade80; margin-bottom: 14px; font-size: 1.05em; text-transform: uppercase; letter-spacing: 1px; }
+  .mail-section p { color: #86efac; font-size: 0.85em; margin-bottom: 12px; }
+
+  .footer { text-align: center; color: #444; font-size: 0.8em; padding: 20px; }
+  @media (max-width: 600px) {
+    .header h1 { font-size: 1.4em; }
+    table { font-size: 0.78em; }
+    td, th { padding: 7px 8px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>⚖️ Maryland Traffic Points Reference</h1>
+  <p>Complete violation → points guide | Transportation Article §16-402</p>
+  <span class="badge">BEAT-TIX STAFF GUIDE</span>
+</div>
+
+<!-- Point System Overview -->
+<div class="system-box">
+  <h2>How the Point System Works</h2>
+  <div class="threshold-grid">
+    <div class="threshold-card">
+      <div class="pts pts-3">3–4</div>
+      <div class="action">⚠️ Warning Letter</div>
+    </div>
+    <div class="threshold-card">
+      <div class="pts pts-5">5–7</div>
+      <div class="action">🏫 Driver Improvement Program Required</div>
+    </div>
+    <div class="threshold-card">
+      <div class="pts pts-8">8–11</div>
+      <div class="action">🚫 License Suspension</div>
+    </div>
+    <div class="threshold-card">
+      <div class="pts pts-12">12+</div>
+      <div class="action">❌ License Revocation (Automatic)</div>
+    </div>
+  </div>
+  <ul class="rules-list" style="margin-top:16px;">
+    <li>Points stay on record for <strong>2 years</strong> from date of violation</li>
+    <li>Multiple charges from same incident → only <strong>highest point charge</strong> counts</li>
+    <li><strong>PBJ (Probation Before Judgment)</strong> → NO points assessed</li>
+    <li><strong>Stet</strong> → NO points assessed</li>
+    <li>Speeding camera / red light camera tickets → <strong>NO points</strong> (not a moving conviction)</li>
+  </ul>
+</div>
+
+<!-- 1 Point -->
+<div class="section">
+  <div class="section-header pts1">
+    <div class="pt-badge" style="color:#22c55e;">1 pt</div>
+    <div>
+      <h3>1 Point Violations</h3>
+      <p>Minor moving violations — low stakes but insurance impact</p>
+    </div>
+  </div>
+  <table>
+    <tr><th>Violation</th><th>Statute</th><th>Notes</th></tr>
+    <tr><td>Any moving violation not otherwise listed, not causing accident</td><td class="stat">General</td><td>Catch-all</td></tr>
+    <tr><td>Improper lane change</td><td class="stat">§21-309</td><td></td></tr>
+    <tr><td>Improper turn / U-turn</td><td class="stat">§21-601–604</td><td></td></tr>
+    <tr><td>Improper passing</td><td class="stat">§21-301–308</td><td></td></tr>
+    <tr><td>Failure to yield to pedestrian</td><td class="stat">§21-502</td><td></td></tr>
+    <tr><td>Failure to yield at intersection</td><td class="stat">§21-403</td><td></td></tr>
+    <tr><td>Failure to use headlights</td><td class="stat">§22-201</td><td></td></tr>
+    <tr><td>Failure to signal</td><td class="stat">§21-604</td><td></td></tr>
+    <tr><td>Disobeying traffic control device</td><td class="stat">§21-201</td><td></td></tr>
+    <tr><td>Driving wrong direction on one-way street</td><td class="stat">§21-301</td><td></td></tr>
+    <tr><td>Improper backing</td><td class="stat">§21-1202</td><td></td></tr>
+    <tr><td>Speeding 1–9 mph over posted limit</td><td class="stat">§21-801</td><td>Under 10mph over</td></tr>
+  </table>
+</div>
+
+<!-- 2 Points -->
+<div class="section">
+  <div class="section-header pts2">
+    <div class="pt-badge" style="color:#84cc16;">2 pts</div>
+    <div>
+      <h3>2 Point Violations</h3>
+      <p>Common tickets — BEAT-TIX Tier 1 & 2 range</p>
+    </div>
+  </div>
+  <table>
+    <tr><th>Violation</th><th>Statute</th></tr>
+    <tr><td>Speeding 10–29 mph over posted speed limit</td><td class="stat">§21-801</td></tr>
+    <tr><td>Following too closely (tailgating)</td><td class="stat">§21-310</td></tr>
+    <tr><td>Failure to stop for red traffic signal</td><td class="stat">§21-202</td></tr>
+    <tr><td>Failure to stop at nonfunctioning traffic signal</td><td class="stat">§21-209</td></tr>
+    <tr><td>Passing stopped school bus</td><td class="stat">§21-706</td></tr>
+    <tr><td>Failure to move over for emergency/police vehicle</td><td class="stat">§21-405(d)</td></tr>
+    <tr><td>Cell phone use while driving (handheld)</td><td class="stat">§21-1124.1</td></tr>
+    <tr><td>Texting while driving</td><td class="stat">§21-1124.2</td></tr>
+    <tr><td>Negligent driving</td><td class="stat">§21-901.1</td></tr>
+    <tr><td>Unsafe speed for conditions</td><td class="stat">§21-801(b)</td></tr>
+    <tr><td>Driving with improper class of license</td><td class="stat">§16-101</td></tr>
+    <tr><td>Disobeying highway lane control signals</td><td class="stat">§21-1111</td></tr>
+    <tr><td>Failure to obey railroad crossing signal</td><td class="stat">§21-801</td></tr>
+  </table>
+</div>
+
+<!-- 3 Points -->
+<div class="section">
+  <div class="section-header pts3">
+    <div class="pt-badge" style="color:#f59e0b;">3 pts</div>
+    <div>
+      <h3>3 Point Violations</h3>
+      <p>Accident-involved violations — insurance risk</p>
+    </div>
+  </div>
+  <table>
+    <tr><th>Violation</th><th>Statute</th></tr>
+    <tr><td>Any moving violation <strong>contributing to an accident</strong></td><td class="stat">§16-402(a)(14)</td></tr>
+    <tr><td>Driving while suspended (subsections h or i only)</td><td class="stat">§16-303(h),(i)</td></tr>
+    <tr><td>Violations of certain license conditions</td><td class="stat">§16-301(c),(d),(e),(h),(i),(j)</td></tr>
+    <tr><td>Speed contest / racing (JFK Memorial Hwy)</td><td class="stat">§21-1411</td></tr>
+    <tr><td>Failure to stop for school vehicle alternating red lights</td><td class="stat">§21-706</td></tr>
+  </table>
+</div>
+
+<!-- 5 Points -->
+<div class="section">
+  <div class="section-header pts5">
+    <div class="pt-badge" style="color:#f97316;">5 pts</div>
+    <div>
+      <h3>5 Point Violations</h3>
+      <p>Suspension risk — several are incarcerable — HIGH VALUE clients</p>
+    </div>
+  </div>
+  <table>
+    <tr><th>Violation</th><th>Statute</th><th>Jail?</th></tr>
+    <tr><td>Driving while NOT licensed (never had license)</td><td class="stat">§16-101</td><td><span class="jail-badge">Up to 60 days</span></td></tr>
+    <tr><td>Driving while license REVOKED</td><td class="stat">§16-304</td><td><span class="jail-badge">Up to 1 year</span></td></tr>
+    <tr><td>Driving while disqualified (CDL)</td><td class="stat">§16-305</td><td><span class="jail-badge">Yes</span></td></tr>
+    <tr><td>Aggressive driving</td><td class="stat">§21-901.2</td><td><span class="jail-badge">Misdemeanor</span></td></tr>
+    <tr><td>Driving uninsured vehicle</td><td class="stat">§17-107</td><td><span class="jail-badge">Yes</span></td></tr>
+    <tr><td>Speeding 20+ mph over 65 mph speed limit</td><td class="stat">§21-801</td><td>No</td></tr>
+    <tr><td>Failure to report an accident</td><td class="stat">§20-104</td><td>No</td></tr>
+    <tr><td>Driving on learner's permit unaccompanied</td><td class="stat">§16-105</td><td>No</td></tr>
+  </table>
+</div>
+
+<!-- 6 Points -->
+<div class="section">
+  <div class="section-header pts6">
+    <div class="pt-badge" style="color:#ef4444;">6 pts</div>
+    <div>
+      <h3>6 Point Violations</h3>
+      <p>Suspension territory — both are incarcerable</p>
+    </div>
+  </div>
+  <table>
+    <tr><th>Violation</th><th>Statute</th><th>Jail?</th></tr>
+    <tr><td>Reckless driving</td><td class="stat">§21-901</td><td><span class="jail-badge">Up to 60 days</span></td></tr>
+    <tr><td>Speeding 30+ mph over posted speed limit</td><td class="stat">§21-801</td><td><span class="jail-badge">Possible jail</span></td></tr>
+  </table>
+</div>
+
+<!-- 8 Points -->
+<div class="section">
+  <div class="section-header pts8">
+    <div class="pt-badge" style="color:#dc2626;">8 pts</div>
+    <div>
+      <h3>8 Point Violations</h3>
+      <p>Automatic suspension territory — serious charges</p>
+    </div>
+  </div>
+  <table>
+    <tr><th>Violation</th><th>Statute</th><th>Jail?</th></tr>
+    <tr><td>Driving while <strong>impaired</strong> by alcohol (DWI)</td><td class="stat">§21-902(b)</td><td><span class="jail-badge">Up to 2 months</span></td></tr>
+    <tr><td>Driving while impaired by drugs or combination</td><td class="stat">§21-902(c)</td><td><span class="jail-badge">Yes</span></td></tr>
+    <tr><td>Driving within 12 hrs after prior DUI arrest</td><td class="stat">§21-902.1</td><td><span class="jail-badge">Yes</span></td></tr>
+    <tr><td>Hit and run — damage to attended vehicle/property</td><td class="stat">§20-102</td><td><span class="jail-badge">Yes</span></td></tr>
+    <tr><td>Hit and run — damage to unattended vehicle/property</td><td class="stat">§20-103</td><td><span class="jail-badge">Yes</span></td></tr>
+    <tr><td>Participating in race / speed contest on highway</td><td class="stat">§21-1124.3</td><td><span class="jail-badge">Yes</span></td></tr>
+    <tr><td>Exhibition driving on highway</td><td class="stat">§21-1124.3</td><td><span class="jail-badge">Yes</span></td></tr>
+    <tr><td>Turning off lights to avoid identification</td><td class="stat">§22-201</td><td>No</td></tr>
+    <tr><td>CDL serious violations</td><td class="stat">§16-815, §16-816</td><td><span class="jail-badge">Yes</span></td></tr>
+  </table>
+</div>
+
+<!-- 12 Points -->
+<div class="section">
+  <div class="section-header pts12">
+    <div class="pt-badge" style="color:#fca5a5;">12 pts</div>
+    <div>
+      <h3>12 Point Violations — AUTOMATIC REVOCATION</h3>
+      <p>All are incarcerable — use DUI / serious criminal brand, NOT BEAT-TIX</p>
+    </div>
+  </div>
+  <table>
+    <tr><th>Violation</th><th>Statute</th><th>Jail?</th></tr>
+    <tr><td>Driving while <strong>under the influence</strong> of alcohol (DUI)</td><td class="stat">§21-902(a)</td><td><span class="jail-badge">Up to 1 year</span></td></tr>
+    <tr><td>DUI per se (.08 BAC or above)</td><td class="stat">§21-902(a)(2)</td><td><span class="jail-badge">Up to 1 year</span></td></tr>
+    <tr><td>DUI impaired by controlled dangerous substance</td><td class="stat">§21-902(d)</td><td><span class="jail-badge">Up to 1 year</span></td></tr>
+    <tr><td>DUI with minor passenger in vehicle</td><td class="stat">§21-902(h)</td><td><span class="jail-badge">Enhanced penalty</span></td></tr>
+    <tr><td>Driving while <strong>SUSPENDED</strong> (general)</td><td class="stat">§16-303</td><td><span class="jail-badge">Up to 1 year</span></td></tr>
+    <tr><td>Driving with no license / false license</td><td class="stat">§16-301(a),(b),(f),(g),(k)-(q)</td><td><span class="jail-badge">Yes</span></td></tr>
+    <tr><td>Driving while unlicensed (related)</td><td class="stat">§16-302</td><td><span class="jail-badge">Yes</span></td></tr>
+    <tr><td>Fleeing or attempting to elude police</td><td class="stat">§21-904</td><td><span class="jail-badge">Up to 1 year</span></td></tr>
+    <tr><td>Hit and run — bodily injury or death</td><td class="stat">§20-102</td><td><span class="jail-badge">Felony</span></td></tr>
+    <tr><td>Homicide by motor vehicle</td><td class="stat">CL §2-209</td><td><span class="jail-badge">Felony</span></td></tr>
+    <tr><td>Life-threatening injury by vehicle</td><td class="stat">CL §3-211</td><td><span class="jail-badge">Felony</span></td></tr>
+    <tr><td>Felony involving use of vehicle</td><td class="stat">Various</td><td><span class="jail-badge">Felony</span></td></tr>
+    <tr><td>Unauthorized use of motor vehicle</td><td class="stat">CL §7-105, §7-203</td><td><span class="jail-badge">Yes</span></td></tr>
+    <tr><td>Racing / speed contest causing serious bodily injury</td><td class="stat">§21-1124.3</td><td><span class="jail-badge">Felony</span></td></tr>
+    <tr><td>False affidavit / statement to MVA</td><td class="stat">§16-301</td><td><span class="jail-badge">Yes</span></td></tr>
+    <tr><td>CDL serious violations</td><td class="stat">§16-808</td><td><span class="jail-badge">Yes</span></td></tr>
+  </table>
+</div>
+
+<!-- No Points -->
+<div class="no-pts-section">
+  <h3>🚫 No Points (but still a charge)</h3>
+  <table>
+    <tr><th>Violation</th><th>Notes</th></tr>
+    <tr><td>Speeding camera ticket</td><td>Civil — no points, no moving violation</td></tr>
+    <tr><td>Red light camera ticket</td><td>Civil — no points, no moving violation</td></tr>
+    <tr><td>Parking violations</td><td>Non-moving — no points</td></tr>
+    <tr><td>Equipment violations</td><td>No points unless contributing to accident</td></tr>
+    <tr><td>Any charge resolved by PBJ</td><td>Guilty plea accepted but NO points</td></tr>
+    <tr><td>Any charge resolved by Stet</td><td>NO points</td></tr>
+  </table>
+</div>
+
+<!-- Beat-Tix Opportunity Map -->
+<div class="opportunity-section">
+  <h2>🎯 BEAT-TIX Fee Tier Map</h2>
+  <table>
+    <tr><th>Points</th><th>Client Fear</th><th>Fee Tier</th><th>Brand</th></tr>
+    <tr><td>1–2 pts</td><td>Fine + minor insurance hike</td><td>Tier 1 — $400</td><td>BEAT-TIX</td></tr>
+    <tr><td>3 pts</td><td>Insurance rate increase</td><td>Tier 2 — $600</td><td>BEAT-TIX</td></tr>
+    <tr><td>5–6 pts</td><td>Suspension risk</td><td>Tier 3 — $850</td><td>BEAT-TIX</td></tr>
+    <tr><td>5 pts (§16-303/304)</td><td>Jail + revocation</td><td>Tier 4 — $750</td><td>BEAT-TIX</td></tr>
+    <tr><td>8 pts (DWI)</td><td>Suspension + jail</td><td>$1,500+</td><td>Serious criminal brand</td></tr>
+    <tr><td>12 pts (DUI/suspended)</td><td>Revocation + up to 1 yr jail</td><td>$2,500+</td><td>Serious criminal brand</td></tr>
+  </table>
+</div>
+
+<!-- Direct Mail Targets -->
+<div class="mail-section">
+  <h2>📬 Direct Mail Targets — Incarcerable Offenses</h2>
+  <p>These are the charges from the Maryland court data feed where defendants face real jail time and are most motivated to hire an attorney immediately.</p>
+  <table>
+    <tr><th>Charge</th><th>Statute</th><th>Max Jail</th><th>Points</th></tr>
+    <tr><td>Driving while suspended</td><td class="stat">§16-303</td><td><span class="jail-badge">1 year</span></td><td>12</td></tr>
+    <tr><td>Driving while revoked</td><td class="stat">§16-304</td><td><span class="jail-badge">1 year</span></td><td>5</td></tr>
+    <tr><td>Driving without a license</td><td class="stat">§16-101</td><td><span class="jail-badge">60 days</span></td><td>5</td></tr>
+    <tr><td>Reckless driving</td><td class="stat">§21-901</td><td><span class="jail-badge">60 days</span></td><td>6</td></tr>
+    <tr><td>Aggressive driving</td><td class="stat">§21-901.2</td><td><span class="jail-badge">Misdemeanor</span></td><td>5</td></tr>
+    <tr><td>DWI (impaired by alcohol)</td><td class="stat">§21-902(b)</td><td><span class="jail-badge">2 months</span></td><td>8</td></tr>
+    <tr><td>DUI (under the influence)</td><td class="stat">§21-902(a)</td><td><span class="jail-badge">1 year</span></td><td>12</td></tr>
+    <tr><td>Hit and run (property damage)</td><td class="stat">§20-102/103</td><td><span class="jail-badge">60 days</span></td><td>8</td></tr>
+    <tr><td>Fleeing / eluding police</td><td class="stat">§21-904</td><td><span class="jail-badge">Up to 1 year</span></td><td>12</td></tr>
+    <tr><td>Speeding 30+ over posted limit</td><td class="stat">§21-801</td><td><span class="jail-badge">Possible jail</span></td><td>6</td></tr>
+  </table>
+</div>
+
+<div class="footer">
+  Source: Maryland Transportation Article §16-402 | BEAT-TIX Internal Staff Reference<br>
+  Not for client distribution | For legal advice consult a licensed Maryland attorney
+</div>
+
+</body>
+</html>
