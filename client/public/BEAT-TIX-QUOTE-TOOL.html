@@ -406,49 +406,71 @@ input:checked + .slider:before { transform: translateX(20px); }
 </div>
 
 <script>
+// ── PRICING TIERS ─────────────────────────────────────────────────────────────
+// Tier 1 — $400  │ 1–15 mph over, cell phone, minor equipment violations
+// Tier 2 — $600  │ 16–25 mph over, red light, stop sign, no/expired license
+// Tier 3 — $850  │ 26–29 mph over, reckless driving
+// Tier 4 — $750  │ Suspended license (§16-303), driving without license
+// Tier 5 — consult  │ Revoked license (§16-304) — attorney evaluation required
+// DUI   — serious brand only
+// ──────────────────────────────────────────────────────────────────────────────
 const CITATIONS = [
-  { name:"Speeding 1–9 mph over", statute:"§21-801", points:1, tier:1, fee:400, jail:false, fine:80 },
-  { name:"Speeding 10–14 mph over", statute:"§21-801", points:2, tier:1, fee:400, jail:false, fine:160 },
-  { name:"Speeding 15–19 mph over", statute:"§21-801", points:2, tier:1, fee:400, jail:false, fine:290 },
-  { name:"Speeding 20–29 mph over", statute:"§21-801", points:2, tier:2, fee:600, jail:false, fine:530 },
-  { name:"Speeding 30+ mph over", statute:"§21-801", points:6, tier:3, fee:850, jail:true, fine:530 },
+  // ── Speeding ──────────────────────────────────────────────────────────────
+  { name:"Speeding 1–9 mph over",   statute:"§21-801", points:1, tier:1, fee:400,  jail:false, fine:80  },
+  { name:"Speeding 10–15 mph over",  statute:"§21-801", points:2, tier:1, fee:400,  jail:false, fine:160 },
+  { name:"Speeding 16–25 mph over",  statute:"§21-801", points:2, tier:2, fee:600,  jail:false, fine:530 },
+  { name:"Speeding 26–29 mph over",  statute:"§21-801", points:2, tier:3, fee:850,  jail:false, fine:530 },
+  { name:"Speeding 30+ mph over",    statute:"§21-801", points:6, tier:3, fee:850,  jail:true,  fine:530 },
   { name:"Speeding 20+ over on 65 mph highway", statute:"§21-801", points:5, tier:3, fee:850, jail:false, fine:530 },
   { name:"Unsafe speed for conditions", statute:"§21-801(b)", points:2, tier:1, fee:400, jail:false, fine:160 },
-  { name:"Red light violation", statute:"§21-202", points:2, tier:1, fee:400, jail:false, fine:140 },
-  { name:"Stop sign violation", statute:"§21-707", points:2, tier:1, fee:400, jail:false, fine:140 },
+  // ── Common moving violations ───────────────────────────────────────────────
+  { name:"Red light violation",      statute:"§21-202",    points:2, tier:2, fee:600, jail:false, fine:140 },
+  { name:"Stop sign violation",      statute:"§21-707",    points:2, tier:2, fee:600, jail:false, fine:140 },
   { name:"Cell phone use while driving", statute:"§21-1124.1", points:2, tier:1, fee:400, jail:false, fine:83 },
-  { name:"Texting while driving", statute:"§21-1124.2", points:2, tier:1, fee:400, jail:false, fine:83 },
-  { name:"Failure to signal", statute:"§21-604", points:1, tier:1, fee:400, jail:false, fine:83 },
-  { name:"Improper lane change", statute:"§21-309", points:1, tier:1, fee:400, jail:false, fine:83 },
-  { name:"Improper turn / U-turn", statute:"§21-601", points:1, tier:1, fee:400, jail:false, fine:83 },
+  { name:"Texting while driving",    statute:"§21-1124.2", points:2, tier:1, fee:400, jail:false, fine:83 },
+  { name:"Failure to signal",        statute:"§21-604",    points:1, tier:1, fee:400, jail:false, fine:83 },
+  { name:"Improper lane change",     statute:"§21-309",    points:1, tier:1, fee:400, jail:false, fine:83 },
+  { name:"Improper turn / U-turn",   statute:"§21-601",    points:1, tier:1, fee:400, jail:false, fine:83 },
   { name:"Failure to yield to pedestrian", statute:"§21-502", points:1, tier:1, fee:400, jail:false, fine:140 },
   { name:"Following too closely / tailgating", statute:"§21-310", points:2, tier:1, fee:400, jail:false, fine:83 },
   { name:"Failure to move over for emergency vehicle", statute:"§21-405(d)", points:2, tier:2, fee:600, jail:false, fine:110 },
   { name:"Passing stopped school bus", statute:"§21-706", points:2, tier:2, fee:600, jail:false, fine:570 },
   { name:"Disobeying traffic control device", statute:"§21-201", points:1, tier:1, fee:400, jail:false, fine:83 },
-  { name:"Negligent driving", statute:"§21-901.1", points:2, tier:2, fee:600, jail:false, fine:140 },
+  { name:"Negligent driving",        statute:"§21-901.1", points:2, tier:2, fee:600, jail:false, fine:140 },
   { name:"Moving violation contributing to accident", statute:"§16-402", points:3, tier:2, fee:600, jail:false, fine:140 },
-  { name:"Driving without a license (never had one)", statute:"§16-101", points:5, tier:4, fee:750, jail:true, fine:290 },
+  // ── Reckless / aggressive ─────────────────────────────────────────────────
+  { name:"Reckless driving",         statute:"§21-901",   points:6, tier:3, fee:850,  jail:true,  fine:1000 },
+  { name:"Aggressive driving",       statute:"§21-901.2", points:5, tier:3, fee:850,  jail:true,  fine:530  },
+  // ── License issues (Tier 4 — $750) ───────────────────────────────────────
   { name:"Driving while SUSPENDED — mandatory operate", statute:"§16-303", points:12, tier:4, fee:750, jail:true, fine:1000 },
-  { name:"Driving while REVOKED", statute:"§16-304", points:5, tier:4, fee:750, jail:true, fine:1000 },
+  { name:"Driving without a license (never had one)",   statute:"§16-101", points:5,  tier:4, fee:750, jail:true, fine:290  },
+  { name:"Driving with improper class of license",      statute:"§16-101", points:2,  tier:2, fee:600, jail:false, fine:140 },
+  { name:"Driving on learner's permit unaccompanied",   statute:"§16-105", points:5,  tier:2, fee:600, jail:false, fine:290 },
   { name:"Driving uninsured vehicle", statute:"§17-107", points:5, tier:4, fee:750, jail:true, fine:1000 },
-  { name:"Driving on learner's permit unaccompanied", statute:"§16-105", points:5, tier:2, fee:600, jail:false, fine:290 },
-  { name:"Driving with improper class of license", statute:"§16-101", points:2, tier:1, fee:400, jail:false, fine:140 },
-  { name:"Reckless driving", statute:"§21-901", points:6, tier:3, fee:850, jail:true, fine:1000 },
-  { name:"Aggressive driving", statute:"§21-901.2", points:5, tier:3, fee:850, jail:true, fine:530 },
-  { name:"Fleeing / eluding police", statute:"§21-904", points:12, tier:4, fee:750, jail:true, fine:1000 },
+  // ── Revoked — attorney consult required (no flat fee) ────────────────────
+  { name:"Driving while REVOKED",    statute:"§16-304",   points:5, tier:5, fee:0, jail:true, fine:1000, consult:true },
+  // ── Serious / high severity ───────────────────────────────────────────────
+  { name:"Fleeing / eluding police", statute:"§21-904",   points:12, tier:4, fee:750,  jail:true, fine:1000 },
   { name:"Hit and run — unattended vehicle/property", statute:"§20-103", points:8, tier:4, fee:1500, jail:true, fine:1000 },
-  { name:"Hit and run — attended vehicle/property", statute:"§20-102", points:8, tier:4, fee:2000, jail:true, fine:1000 },
-  { name:"DWI — driving while impaired by alcohol", statute:"§21-902(b)", points:8, tier:5, fee:2000, jail:true, fine:500, serious:true },
-  { name:"DUI — driving under the influence", statute:"§21-902(a)", points:12, tier:5, fee:2500, jail:true, fine:1000, serious:true },
-  { name:"DUI per se — .08 BAC or above", statute:"§21-902(a)(2)", points:12, tier:5, fee:2500, jail:true, fine:1000, serious:true },
-  { name:"DUI with minor passenger in vehicle", statute:"§21-902(h)", points:12, tier:5, fee:3500, jail:true, fine:1000, serious:true },
-  { name:"DUI impaired by CDS / drugs", statute:"§21-902(d)", points:12, tier:5, fee:2500, jail:true, fine:1000, serious:true },
-  { name:"Racing / speed contest on highway", statute:"§21-1124.3", points:8, tier:3, fee:1500, jail:true, fine:1000 },
-  { name:"Exhibition driving", statute:"§21-1124.3", points:8, tier:3, fee:1500, jail:true, fine:1000 },
+  { name:"Hit and run — attended vehicle/property",   statute:"§20-102", points:8, tier:4, fee:2000, jail:true, fine:1000 },
+  { name:"Racing / speed contest on highway",         statute:"§21-1124.3", points:8, tier:3, fee:1500, jail:true, fine:1000 },
+  { name:"Exhibition driving",       statute:"§21-1124.3", points:8, tier:3, fee:1500, jail:true, fine:1000 },
+  // ── DUI / serious — use criminal brand only ───────────────────────────────
+  { name:"DWI — driving while impaired by alcohol",   statute:"§21-902(b)",   points:8,  tier:6, fee:2000, jail:true, fine:500,  serious:true },
+  { name:"DUI — driving under the influence",         statute:"§21-902(a)",   points:12, tier:6, fee:2500, jail:true, fine:1000, serious:true },
+  { name:"DUI per se — .08 BAC or above",             statute:"§21-902(a)(2)",points:12, tier:6, fee:2500, jail:true, fine:1000, serious:true },
+  { name:"DUI with minor passenger in vehicle",       statute:"§21-902(h)",   points:12, tier:6, fee:3500, jail:true, fine:1000, serious:true },
+  { name:"DUI impaired by CDS / drugs",               statute:"§21-902(d)",   points:12, tier:6, fee:2500, jail:true, fine:1000, serious:true },
 ];
 
-const TIER_LABELS = { 1:"Tier 1 — Standard Traffic", 2:"Tier 2 — Elevated Risk", 3:"Tier 3 — High Severity", 4:"Tier 4 — License / Jail Risk", 5:"⚠️ DUI/Serious — Use Criminal Brand" };
+const TIER_LABELS = {
+  1: "Tier 1 — Standard Traffic ($400)",
+  2: "Tier 2 — Elevated Risk ($600)",
+  3: "Tier 3 — High Severity ($850)",
+  4: "Tier 4 — License / Jail Risk ($750)",
+  5: "⚠️ Revoked — Attorney Consult Required",
+  6: "🚨 DUI/Serious — Use Criminal Brand Only",
+};
 const POINTS_INS = { 0:0, 1:12, 2:25, 3:40, 5:65, 6:85, 8:130, 12:180 };
 const AVG_PREMIUM = 1800;
 
@@ -539,13 +561,18 @@ function updateResults() {
   const isSensitiveJob = document.getElementById('isSensitiveJob').checked;
   const hasJail = addedCitations.some(c=>c.jail);
   const hasSerious = addedCitations.some(c=>c.serious);
+  const hasConsult = addedCitations.some(c=>c.consult);
   const highestTier = Math.max(...addedCitations.map(c=>c.tier));
   const totalFines = addedCitations.reduce((s,c)=>s+(c.fine||0),0);
 
-  // Fee calc
-  let baseFee = addedCitations.length > 1
-    ? Math.round(addedCitations.reduce((s,c)=>s+c.fee,0) * 0.85)
-    : addedCitations[0].fee;
+  // Fee calc — skip consult-only citations from base fee
+  const billableCitations = addedCitations.filter(c=>!c.consult);
+  let baseFee = 0;
+  if (billableCitations.length > 1) {
+    baseFee = Math.round(billableCitations.reduce((s,c)=>s+c.fee,0) * 0.85);
+  } else if (billableCitations.length === 1) {
+    baseFee = billableCitations[0].fee;
+  }
   const cdlSurcharge = isCDL ? 300 : 0;
   const oosSurcharge = isOutOfState ? 200 : 0;
   let totalFee = baseFee + cdlSurcharge + oosSurcharge;
@@ -569,12 +596,20 @@ function updateResults() {
   else{licenseRisk='✅ Low Risk';licenseColor='#4ade80';}
 
   // Cards
-  document.getElementById('rFee').textContent = fmt(totalFee);
+  if (hasConsult && billableCitations.length === 0) {
+    // All citations require consult — no fee to quote
+    document.getElementById('rFee').textContent = 'Consult';
+    document.getElementById('rFee').style.fontSize = '1.2em';
+  } else {
+    document.getElementById('rFee').textContent = fmt(totalFee);
+    document.getElementById('rFee').style.fontSize = '';
+  }
   let tierLabel = (addedCitations.length>1?'Multi-ticket — ':'')+TIER_LABELS[highestTier];
   let surchargeBreakdown = [];
   if (cdlSurcharge) surchargeBreakdown.push('+$300 CDL');
   if (oosSurcharge) surchargeBreakdown.push('+$200 out-of-state');
   if (surchargeBreakdown.length) tierLabel += ' | Base: '+fmt(baseFee)+' '+surchargeBreakdown.join(' ');
+  if (hasConsult && billableCitations.length > 0) tierLabel += ' | ⚠️ +Revoked charge needs consult';
   document.getElementById('rTier').textContent = tierLabel;
   document.getElementById('rPts').textContent = totalPts + (priorPts>0?' ('+priorPts+' prior + '+newPts+' new)':'');
   document.getElementById('rPts').style.color = licenseColor;
@@ -607,9 +642,14 @@ function updateResults() {
   const costIfConvicted = totalFines + total3yr;
   document.getElementById('vsBad').textContent = fmt(costIfConvicted);
   document.getElementById('vsBadBreak').textContent = fmt(totalFines)+' fines + '+fmt(total3yr)+' ins. increase';
-  document.getElementById('vsGood').textContent = fmt(totalFee);
-  const savings = costIfConvicted - totalFee;
-  document.getElementById('vsSavings').textContent = savings>0 ? `Hiring us saves an estimated ${fmt(savings)} vs. doing nothing` : `One flat fee vs. ongoing consequences`;
+  if (hasConsult && billableCitations.length === 0) {
+    document.getElementById('vsGood').textContent = 'TBD';
+    document.getElementById('vsSavings').textContent = 'Fee determined after attorney consultation';
+  } else {
+    document.getElementById('vsGood').textContent = fmt(totalFee);
+    const savings = costIfConvicted - totalFee;
+    document.getElementById('vsSavings').textContent = savings>0 ? `Hiring us saves an estimated ${fmt(savings)} vs. doing nothing` : `One flat fee vs. ongoing consequences`;
+  }
 
   // CDL box
   document.getElementById('cdlBox').classList.toggle('show', isCDL);
@@ -622,8 +662,18 @@ function updateResults() {
     return `<span class="emp-tag${affected?'  affected':''}" title="${e.text}">${affected?'⚠️ ':''} ${e.label}</span>`;
   }).join('');
 
-  // Warning
+  // Warning — serious brand
   document.getElementById('warningBox').classList.toggle('show', hasSerious);
+  // Consult box — revoked license
+  let consultBox = document.getElementById('consultBox');
+  if (!consultBox) {
+    consultBox = document.createElement('div');
+    consultBox.id = 'consultBox';
+    consultBox.className = 'warning-box';
+    consultBox.innerHTML = '<p><strong>⚠️ Driving While REVOKED (§16-304) — Do NOT Quote a Flat Fee</strong><br>A revoked license charge requires a direct attorney evaluation before quoting. Offer a free 15-minute consultation. Do not use BEAT-TIX flat-fee pricing for this charge.</p>';
+    document.getElementById('warningBox').insertAdjacentElement('afterend', consultBox);
+  }
+  consultBox.classList.toggle('show', hasConsult);
 
   // Financing
   const fin = document.getElementById('financingGrid');
