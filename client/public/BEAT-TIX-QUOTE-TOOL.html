@@ -203,6 +203,15 @@ input:checked + .slider:before { transform: translateX(20px); }
         <span class="toggle-label">No &nbsp;&nbsp; Yes</span>
         <label class="toggle"><input type="checkbox" id="isCDL" onchange="updateContext()"><span class="slider"></span></label>
       </div>
+      <div id="cdlFeeNote" style="display:none;margin-top:8px;font-size:0.75em;color:#f97316;">+$300 CDL surcharge applied</div>
+    </div>
+    <div class="context-card">
+      <label>🪪 Out of State License?</label>
+      <div class="toggle-row">
+        <span class="toggle-label">No &nbsp;&nbsp; Yes</span>
+        <label class="toggle"><input type="checkbox" id="isOutOfState" onchange="updateContext()"><span class="slider"></span></label>
+      </div>
+      <div id="oosFeeNote" style="display:none;margin-top:8px;font-size:0.75em;color:#f97316;">+$200 out-of-state surcharge applied</div>
     </div>
     <div class="context-card">
       <label>👔 Sensitive Employment?</label>
@@ -526,6 +535,7 @@ function updateResults() {
   const priorPts = parseInt(document.getElementById('priorPoints').value)||0;
   const totalPts = newPts + priorPts;
   const isCDL = document.getElementById('isCDL').checked;
+  const isOutOfState = document.getElementById('isOutOfState').checked;
   const isSensitiveJob = document.getElementById('isSensitiveJob').checked;
   const hasJail = addedCitations.some(c=>c.jail);
   const hasSerious = addedCitations.some(c=>c.serious);
@@ -533,9 +543,16 @@ function updateResults() {
   const totalFines = addedCitations.reduce((s,c)=>s+(c.fine||0),0);
 
   // Fee calc
-  let totalFee = addedCitations.length > 1
+  let baseFee = addedCitations.length > 1
     ? Math.round(addedCitations.reduce((s,c)=>s+c.fee,0) * 0.85)
     : addedCitations[0].fee;
+  const cdlSurcharge = isCDL ? 300 : 0;
+  const oosSurcharge = isOutOfState ? 200 : 0;
+  let totalFee = baseFee + cdlSurcharge + oosSurcharge;
+
+  // Show/hide surcharge notes
+  document.getElementById('cdlFeeNote').style.display = isCDL ? 'block' : 'none';
+  document.getElementById('oosFeeNote').style.display = isOutOfState ? 'block' : 'none';
 
   // Insurance
   const insRate = getInsRate(totalPts);
@@ -553,7 +570,12 @@ function updateResults() {
 
   // Cards
   document.getElementById('rFee').textContent = fmt(totalFee);
-  document.getElementById('rTier').textContent = (addedCitations.length>1?'Multi-ticket — ':'')+TIER_LABELS[highestTier];
+  let tierLabel = (addedCitations.length>1?'Multi-ticket — ':'')+TIER_LABELS[highestTier];
+  let surchargeBreakdown = [];
+  if (cdlSurcharge) surchargeBreakdown.push('+$300 CDL');
+  if (oosSurcharge) surchargeBreakdown.push('+$200 out-of-state');
+  if (surchargeBreakdown.length) tierLabel += ' | Base: '+fmt(baseFee)+' '+surchargeBreakdown.join(' ');
+  document.getElementById('rTier').textContent = tierLabel;
   document.getElementById('rPts').textContent = totalPts + (priorPts>0?' ('+priorPts+' prior + '+newPts+' new)':'');
   document.getElementById('rPts').style.color = licenseColor;
   document.getElementById('rPtsSub').textContent = totalPts>=12?'AUTO REVOCATION':totalPts>=8?'Suspension very likely':totalPts>=5?'Suspension risk':totalPts>=3?'Warning territory':'Low risk';
@@ -619,14 +641,15 @@ function updateResults() {
   const citNames = addedCitations.map(c=>c.name).join(' and ');
   const courtDateEl = document.getElementById('courtDate').value;
   const urgency = courtDateEl ? `Your court date is ${new Date(courtDateEl).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}. ` : '';
-  const cdlLine = isCDL ? `\n\nAnd because you have a CDL, this is even more serious. A conviction could mean losing your CDL — and your job. CDL holders face disqualification, not just points.` : '';
+  const cdlLine = isCDL ? `\n\nAnd because you have a CDL, this is even more serious. A conviction could mean losing your CDL — and your job. CDL holders face disqualification, not just points. Because of the additional complexity involved in CDL cases, our fee includes a $300 CDL surcharge.` : '';
+  const oosLine = isOutOfState ? `\n\nBecause your license is from out of state, there's additional complexity — we have to track the impact in both Maryland and your home state's DMV. Our fee includes a $200 out-of-state surcharge for that extra work.` : '';
   const senLine = isSensitiveJob ? `\n\nIf you work in a field that requires a background check — government, healthcare, education, security — a conviction shows up and can affect your job or professional license.` : '';
 
   const script = `"Hi [client name], thanks for calling BEAT-TIX. Let me walk you through exactly what you're facing and what we can do.
 
 You've been cited for ${citNames}. ${urgency}
 
-If you're convicted, that's ${totalPts} point${totalPts!==1?'s':''} on your Maryland license.${priorPts>0?` You already have ${priorPts} points — adding these puts you at ${totalPts} total.`:''}${totalPts>=8?' That triggers an automatic suspension hearing with the MVA.':''}${totalPts>=12?' In Maryland, 12 points means AUTOMATIC revocation — your license is gone.':''}${cdlLine}${senLine}
+If you're convicted, that's ${totalPts} point${totalPts!==1?'s':''} on your Maryland license.${priorPts>0?` You already have ${priorPts} points — adding these puts you at ${totalPts} total.`:''}${totalPts>=8?' That triggers an automatic suspension hearing with the MVA.':''}${totalPts>=12?' In Maryland, 12 points means AUTOMATIC revocation — your license is gone.':''}${cdlLine}${oosLine}${senLine}
 
 Here's what most people don't realize — if you just pay that fine, you're pleading guilty. Those points go on your record and your insurance company finds out. We estimate your insurance goes up about $${insIncrease.toLocaleString()} a year — that's $${total3yr.toLocaleString()} extra over the next 3 years.
 
@@ -658,7 +681,10 @@ function resetAll() {
   document.getElementById('courtDate').value='';
   document.getElementById('priorPoints').value='';
   document.getElementById('isCDL').checked=false;
+  document.getElementById('isOutOfState').checked=false;
   document.getElementById('isSensitiveJob').checked=false;
+  document.getElementById('cdlFeeNote').style.display='none';
+  document.getElementById('oosFeeNote').style.display='none';
   searchEl.value='';
 }
 </script>
