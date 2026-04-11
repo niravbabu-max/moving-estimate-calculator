@@ -5,97 +5,168 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BEAT-TIX — Staff Quote Tool</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0a0a0a; color: #e8e8e8; min-height: 100vh; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0a0a0a; color: #e8e8e8; min-height: 100vh; }
 
-  .header { background: linear-gradient(135deg, #cc0000, #8b0000); padding: 20px 24px; display: flex; align-items: center; justify-content: space-between; }
-  .header h1 { font-size: 1.5em; font-weight: 900; color: #fff; }
-  .header p { color: #ffcccc; font-size: 0.85em; }
-  .live-badge { background: #fff; color: #cc0000; font-size: 0.75em; font-weight: 800; padding: 4px 10px; border-radius: 20px; animation: pulse 2s infinite; }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.6} }
+.header { background: linear-gradient(135deg, #cc0000, #8b0000); padding: 20px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+.header h1 { font-size: 1.5em; font-weight: 900; color: #fff; }
+.header p { color: #ffcccc; font-size: 0.85em; }
+.live-badge { background: #fff; color: #cc0000; font-size: 0.75em; font-weight: 800; padding: 4px 10px; border-radius: 20px; animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.6} }
 
-  .main { max-width: 900px; margin: 0 auto; padding: 20px; }
+.main { max-width: 960px; margin: 0 auto; padding: 20px; }
 
-  .search-section { background: #111; border: 2px solid #cc0000; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
-  .search-section label { display: block; font-size: 0.85em; color: #aaa; margin-bottom: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-  .search-wrap { position: relative; }
-  #citationSearch { width: 100%; padding: 14px 16px; background: #1a1a1a; border: 1px solid #333; border-radius: 8px; color: #fff; font-size: 1em; outline: none; }
-  #citationSearch:focus { border-color: #cc0000; }
-  #citationSearch::placeholder { color: #555; }
-  #dropdown { display: none; position: absolute; top: 100%; left: 0; right: 0; background: #1a1a1a; border: 1px solid #333; border-radius: 8px; max-height: 300px; overflow-y: auto; z-index: 100; margin-top: 4px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
-  .dropdown-item { padding: 12px 16px; cursor: pointer; border-bottom: 1px solid #222; display: flex; justify-content: space-between; align-items: center; }
-  .dropdown-item:hover { background: #222; }
-  .dropdown-item:last-child { border: none; }
-  .dropdown-item .name { font-size: 0.9em; color: #ddd; }
-  .dropdown-item .meta { font-size: 0.78em; color: #666; margin-top: 2px; }
-  .dropdown-item .pts-pill { background: #222; border: 1px solid #444; border-radius: 4px; padding: 2px 8px; font-size: 0.78em; font-weight: 700; white-space: nowrap; margin-left: 8px; }
+/* Urgency banner */
+.urgency-banner { display: none; background: linear-gradient(90deg, #7f1d1d, #991b1b); border: 1px solid #ef4444; border-radius: 10px; padding: 14px 18px; margin-bottom: 16px; }
+.urgency-banner.show { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.urgency-banner .urg-text { font-weight: 700; color: #fca5a5; font-size: 0.95em; }
+.urgency-banner .urg-days { font-size: 2em; font-weight: 900; color: #ef4444; }
 
-  /* Added citations list */
-  .added-section { margin-bottom: 20px; }
-  .added-section h3 { font-size: 0.85em; color: #aaa; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
-  .citation-tag { display: inline-flex; align-items: center; gap: 8px; background: #1a1a1a; border: 1px solid #333; border-radius: 6px; padding: 8px 12px; margin: 4px; }
-  .citation-tag .tag-name { font-size: 0.88em; }
-  .citation-tag .tag-pts { font-size: 0.78em; color: #aaa; }
-  .citation-tag .remove-btn { background: none; border: none; color: #555; cursor: pointer; font-size: 1em; line-height: 1; padding: 0; }
-  .citation-tag .remove-btn:hover { color: #ff4444; }
-  .empty-state { color: #444; font-size: 0.88em; padding: 10px 0; }
+/* Client context row */
+.context-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.context-card { background: #111; border: 1px solid #222; border-radius: 10px; padding: 14px; }
+.context-card label { display: block; font-size: 0.75em; color: #777; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+.context-card input[type="date"], .context-card input[type="number"] { width: 100%; background: #1a1a1a; border: 1px solid #333; border-radius: 6px; color: #fff; padding: 8px 10px; font-size: 0.9em; outline: none; }
+.context-card input:focus { border-color: #cc0000; }
+.toggle-row { display: flex; align-items: center; justify-content: space-between; }
+.toggle-label { font-size: 0.9em; }
+.toggle { position: relative; width: 44px; height: 24px; }
+.toggle input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; cursor: pointer; inset: 0; background: #333; border-radius: 24px; transition: .3s; }
+.slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: .3s; }
+input:checked + .slider { background: #cc0000; }
+input:checked + .slider:before { transform: translateX(20px); }
 
-  /* Results */
-  .results { display: none; }
-  .results.visible { display: block; }
+/* Search */
+.search-section { background: #111; border: 2px solid #cc0000; border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+.search-section label { display: block; font-size: 0.85em; color: #aaa; margin-bottom: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+.search-wrap { position: relative; }
+#citationSearch { width: 100%; padding: 14px 16px; background: #1a1a1a; border: 1px solid #333; border-radius: 8px; color: #fff; font-size: 1em; outline: none; }
+#citationSearch:focus { border-color: #cc0000; }
+#citationSearch::placeholder { color: #555; }
+#dropdown { display: none; position: absolute; top: 100%; left: 0; right: 0; background: #1a1a1a; border: 1px solid #333; border-radius: 8px; max-height: 320px; overflow-y: auto; z-index: 100; margin-top: 4px; box-shadow: 0 8px 32px rgba(0,0,0,0.6); }
+.dropdown-item { padding: 12px 16px; cursor: pointer; border-bottom: 1px solid #222; display: flex; justify-content: space-between; align-items: center; }
+.dropdown-item:hover { background: #222; }
+.dropdown-item:last-child { border: none; }
+.dropdown-item .name { font-size: 0.9em; color: #ddd; }
+.dropdown-item .meta { font-size: 0.78em; color: #666; margin-top: 2px; }
+.pts-pill { background: #222; border: 1px solid #444; border-radius: 4px; padding: 2px 8px; font-size: 0.78em; font-weight: 700; white-space: nowrap; margin-left: 8px; }
 
-  .result-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 20px; }
-  .result-card { background: #111; border-radius: 10px; padding: 18px; text-align: center; border: 1px solid #222; }
-  .result-card .label { font-size: 0.75em; color: #777; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
-  .result-card .value { font-size: 2em; font-weight: 900; line-height: 1; }
-  .result-card .sub { font-size: 0.78em; color: #777; margin-top: 4px; }
-  .card-fee { border-color: #cc0000; }
-  .card-fee .value { color: #ff4444; }
-  .card-pts { border-color: #f97316; }
-  .card-pts .value { color: #fb923c; }
-  .card-ins { border-color: #f59e0b; }
-  .card-ins .value { color: #fbbf24; font-size: 1.5em; }
-  .card-status { border-color: #7c3aed; }
-  .card-status .value { font-size: 1em; line-height: 1.3; }
+/* Citations list */
+.added-section { margin-bottom: 16px; }
+.added-section h3 { font-size: 0.85em; color: #aaa; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+.citation-tag { display: inline-flex; align-items: center; gap: 8px; background: #1a1a1a; border: 1px solid #333; border-radius: 6px; padding: 8px 12px; margin: 4px; }
+.citation-tag .tag-name { font-size: 0.88em; }
+.citation-tag .tag-pts { font-size: 0.78em; }
+.remove-btn { background: none; border: none; color: #555; cursor: pointer; font-size: 1em; line-height: 1; padding: 0; }
+.remove-btn:hover { color: #ff4444; }
+.empty-state { color: #444; font-size: 0.88em; padding: 10px 0; }
 
-  /* Insurance breakdown */
-  .ins-breakdown { background: #111; border: 1px solid #333; border-radius: 10px; padding: 18px; margin-bottom: 20px; }
-  .ins-breakdown h3 { font-size: 0.88em; color: #aaa; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 14px; }
-  .ins-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #1e1e1e; }
-  .ins-row:last-child { border: none; font-weight: 700; font-size: 1.05em; margin-top: 6px; }
-  .ins-row .ins-label { font-size: 0.88em; color: #bbb; }
-  .ins-row .ins-val { font-weight: 600; }
-  .ins-row.total .ins-val { color: #f59e0b; font-size: 1.1em; }
+/* Results */
+.results { display: none; }
+.results.visible { display: block; }
 
-  /* vs comparison */
-  .vs-box { background: #0f1a0f; border: 2px solid #16a34a; border-radius: 10px; padding: 18px; margin-bottom: 20px; }
-  .vs-box h3 { color: #4ade80; font-size: 0.9em; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.5px; }
-  .vs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .vs-side { background: #111; border-radius: 8px; padding: 14px; text-align: center; }
-  .vs-side .vs-label { font-size: 0.75em; color: #aaa; text-transform: uppercase; margin-bottom: 6px; }
-  .vs-side .vs-amount { font-size: 1.6em; font-weight: 900; }
-  .vs-bad { border: 1px solid #7f1d1d; }
-  .vs-bad .vs-amount { color: #ef4444; }
-  .vs-good { border: 1px solid #14532d; }
-  .vs-good .vs-amount { color: #4ade80; }
-  .vs-savings { text-align: center; padding: 10px; font-size: 0.85em; color: #4ade80; }
+.result-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.result-card { background: #111; border-radius: 10px; padding: 16px; text-align: center; border: 1px solid #222; }
+.result-card .label { font-size: 0.72em; color: #777; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+.result-card .value { font-size: 1.9em; font-weight: 900; line-height: 1.1; }
+.result-card .sub { font-size: 0.75em; color: #777; margin-top: 4px; }
+.card-fee { border-color: #cc0000; } .card-fee .value { color: #ff4444; }
+.card-pts { border-color: #f97316; } .card-pts .value { color: #fb923c; }
+.card-ins { border-color: #f59e0b; } .card-ins .value { color: #fbbf24; font-size: 1.4em; }
+.card-status .value { font-size: 0.95em; line-height: 1.3; }
 
-  /* Script box */
-  .script-box { background: #0f0f1a; border: 1px solid #2d2d6b; border-radius: 10px; padding: 18px; margin-bottom: 20px; }
-  .script-box h3 { color: #a78bfa; font-size: 0.88em; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
-  .script-text { background: #111; border-radius: 8px; padding: 14px; font-size: 0.88em; line-height: 1.7; color: #ddd; white-space: pre-line; }
-  .script-text strong { color: #fff; }
-  .copy-btn { margin-top: 10px; background: #2d2d6b; border: none; color: #a78bfa; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.82em; font-weight: 600; }
-  .copy-btn:hover { background: #3d3d8b; }
+/* Points bar */
+.pts-bar-wrap { background: #111; border: 1px solid #222; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+.pts-bar-wrap h3 { font-size: 0.82em; color: #aaa; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+.pts-bar-track { height: 18px; background: #1a1a1a; border-radius: 9px; position: relative; overflow: visible; margin-bottom: 8px; }
+.pts-bar-fill { height: 100%; border-radius: 9px; transition: width 0.5s; position: relative; }
+.pts-markers { display: flex; justify-content: space-between; font-size: 0.72em; color: #555; margin-top: 4px; }
+.pts-marker-line { position: absolute; top: -4px; width: 2px; height: 26px; background: #333; }
+.pts-legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; font-size: 0.75em; }
+.pts-leg-item { display: flex; align-items: center; gap: 5px; color: #777; }
+.pts-leg-dot { width: 10px; height: 10px; border-radius: 50%; }
 
-  /* Warning for serious offenses */
-  .warning-box { background: #1a0000; border: 1px solid #7f1d1d; border-radius: 10px; padding: 14px 18px; margin-bottom: 20px; display: none; }
-  .warning-box.show { display: block; }
-  .warning-box p { color: #fca5a5; font-size: 0.88em; }
-  .warning-box strong { color: #ef4444; }
+/* Insurance breakdown */
+.ins-breakdown { background: #111; border: 1px solid #333; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+.ins-breakdown h3 { font-size: 0.82em; color: #aaa; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+.ins-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid #1e1e1e; font-size: 0.88em; }
+.ins-row:last-child { border: none; font-weight: 700; font-size: 1em; margin-top: 4px; }
+.ins-row .ins-label { color: #bbb; }
+.ins-row.total .ins-val { color: #f59e0b; }
 
-  .reset-btn { width: 100%; padding: 12px; background: #1a1a1a; border: 1px solid #333; color: #777; border-radius: 8px; cursor: pointer; font-size: 0.88em; margin-top: 10px; }
-  .reset-btn:hover { background: #222; color: #aaa; }
+/* Pay the fine box */
+.pay-fine-box { background: #1a1000; border: 1px solid #92400e; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+.pay-fine-box h3 { color: #f59e0b; font-size: 0.88em; margin-bottom: 10px; }
+.pay-fine-box p { font-size: 0.85em; color: #d97706; line-height: 1.6; }
+.pay-fine-box ul { margin: 8px 0 0 16px; }
+.pay-fine-box li { font-size: 0.85em; color: #d97706; margin-bottom: 4px; }
+
+/* CDL box */
+.cdl-box { display: none; background: #1a0000; border: 2px solid #ef4444; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+.cdl-box.show { display: block; }
+.cdl-box h3 { color: #ef4444; font-size: 0.95em; margin-bottom: 10px; }
+.cdl-box ul { margin-left: 16px; }
+.cdl-box li { font-size: 0.85em; color: #fca5a5; margin-bottom: 5px; line-height: 1.5; }
+
+/* Employment impact */
+.employment-box { background: #0f0f1a; border: 1px solid #2d2d6b; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+.employment-box h3 { color: #a78bfa; font-size: 0.88em; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+.emp-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.emp-tag { background: #1a1a2e; border: 1px solid #3730a3; border-radius: 6px; padding: 6px 12px; font-size: 0.8em; color: #c4b5fd; }
+.emp-tag.affected { border-color: #ef4444; color: #fca5a5; background: #1a0000; }
+
+/* vs comparison */
+.vs-box { background: #0f1a0f; border: 2px solid #16a34a; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+.vs-box h3 { color: #4ade80; font-size: 0.88em; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+.vs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 10px; }
+.vs-side { background: #111; border-radius: 8px; padding: 14px; text-align: center; }
+.vs-side .vs-label { font-size: 0.72em; color: #aaa; text-transform: uppercase; margin-bottom: 6px; }
+.vs-side .vs-amount { font-size: 1.6em; font-weight: 900; }
+.vs-side .vs-breakdown { font-size: 0.72em; color: #666; margin-top: 4px; }
+.vs-bad { border: 1px solid #7f1d1d; } .vs-bad .vs-amount { color: #ef4444; }
+.vs-good { border: 1px solid #14532d; } .vs-good .vs-amount { color: #4ade80; }
+.vs-savings { text-align: center; padding: 8px; font-size: 0.88em; color: #4ade80; font-weight: 600; }
+
+/* Financing */
+.financing-box { background: #0f1a1a; border: 1px solid #134e4a; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+.financing-box h3 { color: #2dd4bf; font-size: 0.88em; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+.financing-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+.fin-card { background: #111; border: 1px solid #1f2937; border-radius: 8px; padding: 12px; text-align: center; }
+.fin-card .fin-name { font-size: 0.85em; font-weight: 700; color: #fff; margin-bottom: 4px; }
+.fin-card .fin-terms { font-size: 0.75em; color: #6b7280; }
+.fin-card .fin-monthly { font-size: 1.1em; font-weight: 700; color: #2dd4bf; margin-top: 4px; }
+
+/* Process */
+.process-box { background: #111; border: 1px solid #222; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+.process-box h3 { color: #e8e8e8; font-size: 0.88em; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.5px; }
+.process-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+.process-step { text-align: center; padding: 12px 8px; }
+.process-step .step-num { width: 32px; height: 32px; background: #cc0000; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 0.9em; margin: 0 auto 8px; }
+.process-step .step-title { font-size: 0.82em; font-weight: 700; color: #fff; margin-bottom: 3px; }
+.process-step .step-desc { font-size: 0.75em; color: #666; }
+.process-arrow { display: flex; align-items: center; justify-content: center; color: #333; font-size: 1.2em; }
+
+/* Script */
+.script-box { background: #0f0f1a; border: 1px solid #2d2d6b; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+.script-box h3 { color: #a78bfa; font-size: 0.88em; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+.script-text { background: #111; border-radius: 8px; padding: 14px; font-size: 0.87em; line-height: 1.75; color: #ddd; white-space: pre-line; }
+.script-actions { display: flex; gap: 10px; margin-top: 10px; }
+.copy-btn { background: #2d2d6b; border: none; color: #a78bfa; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.82em; font-weight: 600; }
+.copy-btn:hover { background: #3d3d8b; }
+
+/* Warning */
+.warning-box { background: #1a0000; border: 1px solid #7f1d1d; border-radius: 10px; padding: 14px 18px; margin-bottom: 16px; display: none; }
+.warning-box.show { display: block; }
+.warning-box p { color: #fca5a5; font-size: 0.88em; line-height: 1.6; }
+
+.reset-btn { width: 100%; padding: 12px; background: #1a1a1a; border: 1px solid #333; color: #777; border-radius: 8px; cursor: pointer; font-size: 0.88em; margin-top: 4px; }
+.reset-btn:hover { background: #222; color: #aaa; }
+
+@media (max-width: 600px) {
+  .vs-grid { grid-template-columns: 1fr; }
+  .result-card .value { font-size: 1.5em; }
+}
 </style>
 </head>
 <body>
@@ -103,25 +174,57 @@
 <div class="header">
   <div>
     <h1>⚖️ BEAT-TIX Quote Tool</h1>
-    <p>Staff intake — instant pricing & impact calculator</p>
+    <p>Staff intake — instant pricing, points & impact calculator</p>
   </div>
   <span class="live-badge">● LIVE CALL</span>
 </div>
 
 <div class="main">
 
+  <!-- Urgency Banner -->
+  <div class="urgency-banner" id="urgencyBanner">
+    <div class="urg-text" id="urgencyText">⚠️ Court date is approaching!</div>
+    <div class="urg-days" id="urgencyDays"></div>
+  </div>
+
+  <!-- Client Context -->
+  <div class="context-grid">
+    <div class="context-card">
+      <label>📅 Court Date</label>
+      <input type="date" id="courtDate" onchange="updateContext()">
+    </div>
+    <div class="context-card">
+      <label>⚡ Existing Points on License</label>
+      <input type="number" id="priorPoints" min="0" max="11" placeholder="0" oninput="updateContext()">
+    </div>
+    <div class="context-card">
+      <label>🚛 CDL (Commercial License)?</label>
+      <div class="toggle-row">
+        <span class="toggle-label">No &nbsp;&nbsp; Yes</span>
+        <label class="toggle"><input type="checkbox" id="isCDL" onchange="updateContext()"><span class="slider"></span></label>
+      </div>
+    </div>
+    <div class="context-card">
+      <label>👔 Sensitive Employment?</label>
+      <div class="toggle-row">
+        <span class="toggle-label">No &nbsp;&nbsp; Yes</span>
+        <label class="toggle"><input type="checkbox" id="isSensitiveJob" onchange="updateContext()"><span class="slider"></span></label>
+      </div>
+    </div>
+  </div>
+
   <!-- Citation Search -->
   <div class="search-section">
     <label>Enter citation(s) — type to search</label>
     <div class="search-wrap">
-      <input type="text" id="citationSearch" placeholder="e.g. speeding, suspended license, reckless..." autocomplete="off">
+      <input type="text" id="citationSearch" placeholder="e.g. speeding, suspended license, reckless, cell phone..." autocomplete="off">
       <div id="dropdown"></div>
     </div>
   </div>
 
   <!-- Added citations -->
   <div class="added-section">
-    <h3>Citations added (<span id="citationCount">0</span>)</h3>
+    <h3>Citations on this call (<span id="citationCount">0</span>)</h3>
     <div id="citationList"><p class="empty-state">No citations added yet — search above</p></div>
   </div>
 
@@ -129,88 +232,163 @@
   <div class="results" id="results">
 
     <div class="warning-box" id="warningBox">
-      <p><strong>⚠️ Serious Offense Detected</strong><br>
-      One or more charges involve potential jail time or automatic license revocation. Use the <strong>serious criminal / DUI brand</strong> — not BEAT-TIX branding. Adjust fee accordingly.</p>
+      <p><strong>⚠️ Serious Offense — Use DUI / Criminal Brand</strong><br>
+      One or more charges involve potential jail time or automatic license revocation. Do NOT use BEAT-TIX branding on this call. Present as Innovate Legal Group or your DUI brand. Adjust fee accordingly.</p>
     </div>
 
+    <!-- Top cards -->
     <div class="result-grid">
       <div class="result-card card-fee">
-        <div class="label">Our Fee</div>
+        <div class="label">Our Flat Fee</div>
         <div class="value" id="rFee">—</div>
         <div class="sub" id="rTier">—</div>
       </div>
       <div class="result-card card-pts">
-        <div class="label">Points at Risk</div>
+        <div class="label">Total Points at Risk</div>
         <div class="value" id="rPts">—</div>
         <div class="sub" id="rPtsSub">—</div>
       </div>
       <div class="result-card card-ins">
-        <div class="label">Est. Insurance Increase</div>
+        <div class="label">Insurance Increase (3 yrs)</div>
         <div class="value" id="rInsIncrease">—</div>
-        <div class="sub" id="rInsPct">over 3 years (avg MD driver)</div>
+        <div class="sub">estimated extra cost</div>
       </div>
       <div class="result-card card-status">
-        <div class="label">License Risk</div>
+        <div class="label">License Status Risk</div>
         <div class="value" id="rLicenseRisk">—</div>
       </div>
+    </div>
+
+    <!-- Points bar -->
+    <div class="pts-bar-wrap">
+      <h3>📊 License Points Meter — After Conviction</h3>
+      <div class="pts-bar-track" id="ptsBarTrack">
+        <div class="pts-bar-fill" id="ptsBarFill"></div>
+        <div class="pts-marker-line" style="left:25%"></div>
+        <div class="pts-marker-line" style="left:41.6%"></div>
+        <div class="pts-marker-line" style="left:66.6%"></div>
+      </div>
+      <div class="pts-markers">
+        <span>0</span><span>3 (warning)</span><span>5 (DIP)</span><span>8 (suspend)</span><span>12 (revoke)</span>
+      </div>
+      <div class="pts-legend">
+        <div class="pts-leg-item"><div class="pts-leg-dot" style="background:#22c55e"></div> Safe</div>
+        <div class="pts-leg-item"><div class="pts-leg-dot" style="background:#f59e0b"></div> Warning letter</div>
+        <div class="pts-leg-item"><div class="pts-leg-dot" style="background:#f97316"></div> Driver program required</div>
+        <div class="pts-leg-item"><div class="pts-leg-dot" style="background:#ef4444"></div> Suspension</div>
+        <div class="pts-leg-item"><div class="pts-leg-dot" style="background:#7f1d1d"></div> Revocation</div>
+      </div>
+      <div id="priorPtsNote" style="margin-top:10px;font-size:0.8em;color:#aaa;display:none;"></div>
+    </div>
+
+    <!-- What if I just pay the fine -->
+    <div class="pay-fine-box">
+      <h3>⚠️ "What if I just pay the fine?" — Tell them this:</h3>
+      <p>Paying the fine is not the same as paying a parking ticket. <strong style="color:#f59e0b;">In Maryland, paying your citation = pleading GUILTY.</strong> That means:</p>
+      <ul>
+        <li>Points go on your license immediately</li>
+        <li>Your insurance company is notified and <strong style="color:#f59e0b;">will raise your rates</strong> — often within 30–60 days</li>
+        <li>The conviction stays on your MVA record for <strong style="color:#f59e0b;">3 years</strong></li>
+        <li>If you already have points, this could push you into suspension territory</li>
+        <li>For incarcerable offenses — you still face potential jail time even if you pay</li>
+      </ul>
+    </div>
+
+    <!-- CDL Warning -->
+    <div class="cdl-box" id="cdlBox">
+      <h3>🚛 CDL HOLDER — CRITICAL WARNING</h3>
+      <ul>
+        <li><strong>CDL drivers are held to a HIGHER standard.</strong> Convictions that carry 2 points for regular drivers can trigger CDL disqualification.</li>
+        <li>A serious traffic violation conviction = <strong>60-day CDL disqualification</strong> (first offense)</li>
+        <li>Two serious violations in 3 years = <strong>120-day CDL disqualification</strong></li>
+        <li>DUI/DWI = <strong>1-year CDL disqualification (minimum)</strong> — second offense = lifetime ban</li>
+        <li>This client could lose their <strong>job and livelihood</strong>, not just their license</li>
+        <li><strong>Adjust your fee upward</strong> — the stakes are much higher. Recommend $1,500+ for most CDL cases.</li>
+      </ul>
+    </div>
+
+    <!-- Employment Impact -->
+    <div class="employment-box" id="employmentBox">
+      <h3>👔 Employment & Background Check Impact</h3>
+      <div class="emp-list" id="empList"></div>
     </div>
 
     <!-- Insurance breakdown -->
     <div class="ins-breakdown">
       <h3>📈 Insurance Cost Breakdown (if convicted)</h3>
-      <div class="ins-row">
-        <span class="ins-label">Avg. MD annual premium (baseline)</span>
-        <span class="ins-val">$1,800 / yr</span>
-      </div>
-      <div class="ins-row">
-        <span class="ins-label">Estimated rate increase</span>
-        <span class="ins-val" id="brkPct">—</span>
-      </div>
-      <div class="ins-row">
-        <span class="ins-label">New estimated annual premium</span>
-        <span class="ins-val" id="brkNewPremium">—</span>
-      </div>
-      <div class="ins-row">
-        <span class="ins-label">Extra cost year 1</span>
-        <span class="ins-val" id="brkY1">—</span>
-      </div>
-      <div class="ins-row">
-        <span class="ins-label">Extra cost year 2</span>
-        <span class="ins-val" id="brkY2">—</span>
-      </div>
-      <div class="ins-row">
-        <span class="ins-label">Extra cost year 3</span>
-        <span class="ins-val" id="brkY3">—</span>
-      </div>
-      <div class="ins-row total">
-        <span class="ins-label">Total insurance increase over 3 years</span>
-        <span class="ins-val ins-val" id="brkTotal">—</span>
-      </div>
+      <div class="ins-row"><span class="ins-label">Avg. MD annual premium (baseline)</span><span class="ins-val">$1,800/yr</span></div>
+      <div class="ins-row"><span class="ins-label">Estimated rate increase</span><span class="ins-val" id="brkPct">—</span></div>
+      <div class="ins-row"><span class="ins-label">New estimated annual premium</span><span class="ins-val" id="brkNewPremium">—</span></div>
+      <div class="ins-row"><span class="ins-label">Extra cost — Year 1</span><span class="ins-val" id="brkY1">—</span></div>
+      <div class="ins-row"><span class="ins-label">Extra cost — Year 2</span><span class="ins-val" id="brkY2">—</span></div>
+      <div class="ins-row"><span class="ins-label">Extra cost — Year 3</span><span class="ins-val" id="brkY3">—</span></div>
+      <div class="ins-row total"><span class="ins-label">Total insurance increase over 3 years</span><span class="ins-val" id="brkTotal">—</span></div>
     </div>
 
     <!-- vs comparison -->
     <div class="vs-box">
-      <h3>💡 Cost Comparison — What should they do?</h3>
+      <h3>💡 Real Cost Comparison</h3>
       <div class="vs-grid">
         <div class="vs-side vs-bad">
           <div class="vs-label">❌ Do Nothing (convicted)</div>
           <div class="vs-amount" id="vsBad">—</div>
-          <div style="font-size:0.75em;color:#aaa;margin-top:4px;">fines + insurance over 3 yrs</div>
+          <div class="vs-breakdown" id="vsBadBreak">—</div>
         </div>
         <div class="vs-side vs-good">
           <div class="vs-label">✅ Hire BEAT-TIX</div>
           <div class="vs-amount" id="vsGood">—</div>
-          <div style="font-size:0.75em;color:#aaa;margin-top:4px;">our flat fee</div>
+          <div class="vs-breakdown">flat fee, no surprises</div>
         </div>
       </div>
       <div class="vs-savings" id="vsSavings">—</div>
     </div>
 
-    <!-- Staff script -->
+    <!-- Financing -->
+    <div class="financing-box">
+      <h3>💳 Financing Options — "I can't afford it right now"</h3>
+      <div class="financing-grid" id="financingGrid"></div>
+    </div>
+
+    <!-- Process -->
+    <div class="process-box">
+      <h3>✅ How It Works — What to Tell Them</h3>
+      <div class="process-steps">
+        <div class="process-step">
+          <div class="step-num">1</div>
+          <div class="step-title">Sign & Pay Today</div>
+          <div class="step-desc">5 min online — sign retainer, pay flat fee</div>
+        </div>
+        <div class="process-step">
+          <div class="step-num">2</div>
+          <div class="step-title">We File Appearance</div>
+          <div class="step-desc">Attorney files with court — you're covered</div>
+        </div>
+        <div class="process-step">
+          <div class="step-num">3</div>
+          <div class="step-title">We Handle Everything</div>
+          <div class="step-desc">Negotiate with prosecutor, review evidence</div>
+        </div>
+        <div class="process-step">
+          <div class="step-num">4</div>
+          <div class="step-title">You Don't Go to Court*</div>
+          <div class="step-desc">Attorney appears on your behalf in most cases</div>
+        </div>
+        <div class="process-step">
+          <div class="step-num">5</div>
+          <div class="step-title">We Notify You</div>
+          <div class="step-desc">Outcome sent same day — case closed</div>
+        </div>
+      </div>
+      <p style="font-size:0.72em;color:#444;margin-top:10px;">*Most traffic/misdemeanor cases — exceptions apply. Client may need to appear for DUI, serious charges, or if trial is required.</p>
+    </div>
+
+    <!-- Script -->
     <div class="script-box">
       <h3>📞 Staff Phone Script</h3>
       <div class="script-text" id="scriptText">—</div>
-      <button class="copy-btn" onclick="copyScript()">📋 Copy script</button>
+      <div class="script-actions">
+        <button class="copy-btn" onclick="copyScript()">📋 Copy script</button>
+      </div>
     </div>
 
     <button class="reset-btn" onclick="resetAll()">🔄 Clear all — new call</button>
@@ -220,78 +398,62 @@
 
 <script>
 const CITATIONS = [
-  // Speeding
-  { name: "Speeding 1–9 mph over", statute: "§21-801", points: 1, tier: 1, fee: 400, jail: false, fine: 80 },
-  { name: "Speeding 10–14 mph over", statute: "§21-801", points: 2, tier: 1, fee: 400, jail: false, fine: 160 },
-  { name: "Speeding 15–19 mph over", statute: "§21-801", points: 2, tier: 1, fee: 400, jail: false, fine: 290 },
-  { name: "Speeding 20–29 mph over", statute: "§21-801", points: 2, tier: 2, fee: 600, jail: false, fine: 530 },
-  { name: "Speeding 30+ mph over", statute: "§21-801", points: 6, tier: 3, fee: 850, jail: true, fine: 530 },
-  { name: "Speeding 20+ over on 65 mph highway", statute: "§21-801", points: 5, tier: 3, fee: 850, jail: false, fine: 530 },
-  { name: "Unsafe speed for conditions", statute: "§21-801(b)", points: 2, tier: 1, fee: 400, jail: false, fine: 160 },
-
-  // Common moving violations
-  { name: "Red light violation", statute: "§21-202", points: 2, tier: 1, fee: 400, jail: false, fine: 140 },
-  { name: "Stop sign violation", statute: "§21-707", points: 2, tier: 1, fee: 400, jail: false, fine: 140 },
-  { name: "Cell phone use while driving", statute: "§21-1124.1", points: 2, tier: 1, fee: 400, jail: false, fine: 83 },
-  { name: "Texting while driving", statute: "§21-1124.2", points: 2, tier: 1, fee: 400, jail: false, fine: 83 },
-  { name: "Failure to signal", statute: "§21-604", points: 1, tier: 1, fee: 400, jail: false, fine: 83 },
-  { name: "Improper lane change", statute: "§21-309", points: 1, tier: 1, fee: 400, jail: false, fine: 83 },
-  { name: "Improper turn / U-turn", statute: "§21-601", points: 1, tier: 1, fee: 400, jail: false, fine: 83 },
-  { name: "Failure to yield to pedestrian", statute: "§21-502", points: 1, tier: 1, fee: 400, jail: false, fine: 140 },
-  { name: "Following too closely / tailgating", statute: "§21-310", points: 2, tier: 1, fee: 400, jail: false, fine: 83 },
-  { name: "Failure to move over for emergency vehicle", statute: "§21-405(d)", points: 2, tier: 2, fee: 600, jail: false, fine: 110 },
-  { name: "Passing stopped school bus", statute: "§21-706", points: 2, tier: 2, fee: 600, jail: false, fine: 570 },
-  { name: "Disobeying traffic control device", statute: "§21-201", points: 1, tier: 1, fee: 400, jail: false, fine: 83 },
-  { name: "Wrong way on one-way street", statute: "§21-301", points: 1, tier: 1, fee: 400, jail: false, fine: 83 },
-  { name: "Improper passing", statute: "§21-301", points: 1, tier: 1, fee: 400, jail: false, fine: 83 },
-  { name: "Negligent driving", statute: "§21-901.1", points: 2, tier: 2, fee: 600, jail: false, fine: 140 },
-
-  // Accident-involved
-  { name: "Moving violation contributing to accident", statute: "§16-402(a)(14)", points: 3, tier: 2, fee: 600, jail: false, fine: 140 },
-
-  // License violations
-  { name: "Driving without a license (never had one)", statute: "§16-101", points: 5, tier: 4, fee: 750, jail: true, fine: 290 },
-  { name: "Driving while SUSPENDED", statute: "§16-303", points: 12, tier: 4, fee: 750, jail: true, fine: 1000 },
-  { name: "Driving while REVOKED", statute: "§16-304", points: 5, tier: 4, fee: 750, jail: true, fine: 1000 },
-  { name: "Driving on learner's permit unaccompanied", statute: "§16-105", points: 5, tier: 2, fee: 600, jail: false, fine: 290 },
-  { name: "Driving with improper class of license", statute: "§16-101", points: 2, tier: 1, fee: 400, jail: false, fine: 140 },
-  { name: "Driving uninsured vehicle", statute: "§17-107", points: 5, tier: 4, fee: 750, jail: true, fine: 1000 },
-
-  // Reckless / aggressive
-  { name: "Reckless driving", statute: "§21-901", points: 6, tier: 3, fee: 850, jail: true, fine: 1000 },
-  { name: "Aggressive driving", statute: "§21-901.2", points: 5, tier: 3, fee: 850, jail: true, fine: 530 },
-  { name: "Fleeing / eluding police", statute: "§21-904", points: 12, tier: 4, fee: 750, jail: true, fine: 1000 },
-
-  // Hit and run
-  { name: "Hit and run — property damage (unattended)", statute: "§20-103", points: 8, tier: 4, fee: 1500, jail: true, fine: 1000 },
-  { name: "Hit and run — attended vehicle/property", statute: "§20-102", points: 8, tier: 4, fee: 2000, jail: true, fine: 1000 },
-
-  // DUI / DWI
-  { name: "DWI — driving while impaired by alcohol", statute: "§21-902(b)", points: 8, tier: 5, fee: 2000, jail: true, fine: 500, serious: true },
-  { name: "DUI — driving under the influence", statute: "§21-902(a)", points: 12, tier: 5, fee: 2500, jail: true, fine: 1000, serious: true },
-  { name: "DUI per se — .08 BAC or above", statute: "§21-902(a)(2)", points: 12, tier: 5, fee: 2500, jail: true, fine: 1000, serious: true },
-  { name: "DUI with minor passenger", statute: "§21-902(h)", points: 12, tier: 5, fee: 3500, jail: true, fine: 1000, serious: true },
-  { name: "DUI impaired by drugs / CDS", statute: "§21-902(d)", points: 12, tier: 5, fee: 2500, jail: true, fine: 1000, serious: true },
-
-  // Racing
-  { name: "Racing / speed contest on highway", statute: "§21-1124.3", points: 8, tier: 3, fee: 1500, jail: true, fine: 1000 },
-  { name: "Exhibition driving", statute: "§21-1124.3", points: 8, tier: 3, fee: 1500, jail: true, fine: 1000 },
-  { name: "Racing causing serious bodily injury", statute: "§21-1124.3", points: 12, tier: 5, fee: 5000, jail: true, fine: 1000, serious: true },
+  { name:"Speeding 1–9 mph over", statute:"§21-801", points:1, tier:1, fee:400, jail:false, fine:80 },
+  { name:"Speeding 10–14 mph over", statute:"§21-801", points:2, tier:1, fee:400, jail:false, fine:160 },
+  { name:"Speeding 15–19 mph over", statute:"§21-801", points:2, tier:1, fee:400, jail:false, fine:290 },
+  { name:"Speeding 20–29 mph over", statute:"§21-801", points:2, tier:2, fee:600, jail:false, fine:530 },
+  { name:"Speeding 30+ mph over", statute:"§21-801", points:6, tier:3, fee:850, jail:true, fine:530 },
+  { name:"Speeding 20+ over on 65 mph highway", statute:"§21-801", points:5, tier:3, fee:850, jail:false, fine:530 },
+  { name:"Unsafe speed for conditions", statute:"§21-801(b)", points:2, tier:1, fee:400, jail:false, fine:160 },
+  { name:"Red light violation", statute:"§21-202", points:2, tier:1, fee:400, jail:false, fine:140 },
+  { name:"Stop sign violation", statute:"§21-707", points:2, tier:1, fee:400, jail:false, fine:140 },
+  { name:"Cell phone use while driving", statute:"§21-1124.1", points:2, tier:1, fee:400, jail:false, fine:83 },
+  { name:"Texting while driving", statute:"§21-1124.2", points:2, tier:1, fee:400, jail:false, fine:83 },
+  { name:"Failure to signal", statute:"§21-604", points:1, tier:1, fee:400, jail:false, fine:83 },
+  { name:"Improper lane change", statute:"§21-309", points:1, tier:1, fee:400, jail:false, fine:83 },
+  { name:"Improper turn / U-turn", statute:"§21-601", points:1, tier:1, fee:400, jail:false, fine:83 },
+  { name:"Failure to yield to pedestrian", statute:"§21-502", points:1, tier:1, fee:400, jail:false, fine:140 },
+  { name:"Following too closely / tailgating", statute:"§21-310", points:2, tier:1, fee:400, jail:false, fine:83 },
+  { name:"Failure to move over for emergency vehicle", statute:"§21-405(d)", points:2, tier:2, fee:600, jail:false, fine:110 },
+  { name:"Passing stopped school bus", statute:"§21-706", points:2, tier:2, fee:600, jail:false, fine:570 },
+  { name:"Disobeying traffic control device", statute:"§21-201", points:1, tier:1, fee:400, jail:false, fine:83 },
+  { name:"Negligent driving", statute:"§21-901.1", points:2, tier:2, fee:600, jail:false, fine:140 },
+  { name:"Moving violation contributing to accident", statute:"§16-402", points:3, tier:2, fee:600, jail:false, fine:140 },
+  { name:"Driving without a license (never had one)", statute:"§16-101", points:5, tier:4, fee:750, jail:true, fine:290 },
+  { name:"Driving while SUSPENDED — mandatory operate", statute:"§16-303", points:12, tier:4, fee:750, jail:true, fine:1000 },
+  { name:"Driving while REVOKED", statute:"§16-304", points:5, tier:4, fee:750, jail:true, fine:1000 },
+  { name:"Driving uninsured vehicle", statute:"§17-107", points:5, tier:4, fee:750, jail:true, fine:1000 },
+  { name:"Driving on learner's permit unaccompanied", statute:"§16-105", points:5, tier:2, fee:600, jail:false, fine:290 },
+  { name:"Driving with improper class of license", statute:"§16-101", points:2, tier:1, fee:400, jail:false, fine:140 },
+  { name:"Reckless driving", statute:"§21-901", points:6, tier:3, fee:850, jail:true, fine:1000 },
+  { name:"Aggressive driving", statute:"§21-901.2", points:5, tier:3, fee:850, jail:true, fine:530 },
+  { name:"Fleeing / eluding police", statute:"§21-904", points:12, tier:4, fee:750, jail:true, fine:1000 },
+  { name:"Hit and run — unattended vehicle/property", statute:"§20-103", points:8, tier:4, fee:1500, jail:true, fine:1000 },
+  { name:"Hit and run — attended vehicle/property", statute:"§20-102", points:8, tier:4, fee:2000, jail:true, fine:1000 },
+  { name:"DWI — driving while impaired by alcohol", statute:"§21-902(b)", points:8, tier:5, fee:2000, jail:true, fine:500, serious:true },
+  { name:"DUI — driving under the influence", statute:"§21-902(a)", points:12, tier:5, fee:2500, jail:true, fine:1000, serious:true },
+  { name:"DUI per se — .08 BAC or above", statute:"§21-902(a)(2)", points:12, tier:5, fee:2500, jail:true, fine:1000, serious:true },
+  { name:"DUI with minor passenger in vehicle", statute:"§21-902(h)", points:12, tier:5, fee:3500, jail:true, fine:1000, serious:true },
+  { name:"DUI impaired by CDS / drugs", statute:"§21-902(d)", points:12, tier:5, fee:2500, jail:true, fine:1000, serious:true },
+  { name:"Racing / speed contest on highway", statute:"§21-1124.3", points:8, tier:3, fee:1500, jail:true, fine:1000 },
+  { name:"Exhibition driving", statute:"§21-1124.3", points:8, tier:3, fee:1500, jail:true, fine:1000 },
 ];
 
-const TIER_LABELS = {
-  1: "Tier 1 — Standard Traffic",
-  2: "Tier 2 — Elevated Risk",
-  3: "Tier 3 — High Severity",
-  4: "Tier 4 — License / Jail Risk",
-  5: "⚠️ DUI / Serious — Use Other Brand"
-};
-
-const POINTS_INS = {
-  0: 0, 1: 12, 2: 25, 3: 40, 5: 65, 6: 85, 8: 130, 12: 180
-};
-
+const TIER_LABELS = { 1:"Tier 1 — Standard Traffic", 2:"Tier 2 — Elevated Risk", 3:"Tier 3 — High Severity", 4:"Tier 4 — License / Jail Risk", 5:"⚠️ DUI/Serious — Use Criminal Brand" };
+const POINTS_INS = { 0:0, 1:12, 2:25, 3:40, 5:65, 6:85, 8:130, 12:180 };
 const AVG_PREMIUM = 1800;
+
+const EMPLOYMENT_IMPACTS = [
+  { label:"Government / Federal Jobs", threshold:3, text:"Background checks flag convictions" },
+  { label:"Security Clearance", threshold:1, text:"Any conviction can affect clearance" },
+  { label:"Teaching / Education", threshold:3, text:"License board reviews convictions" },
+  { label:"Healthcare / Nursing", threshold:3, text:"State board may sanction license" },
+  { label:"Law / Bar Admission", threshold:1, text:"Must disclose all convictions" },
+  { label:"Real Estate License", threshold:3, text:"MREC reviews criminal history" },
+  { label:"CDL / Commercial Driving", threshold:1, text:"See CDL warning above" },
+  { label:"Insurance / Finance", threshold:3, text:"Licensing boards review record" },
+  { label:"Rideshare (Uber/Lyft)", threshold:2, text:"Moving violations can disqualify" },
+];
 
 let addedCitations = [];
 
@@ -301,82 +463,79 @@ const dropdown = document.getElementById('dropdown');
 
 searchEl.addEventListener('input', function() {
   const q = this.value.toLowerCase().trim();
-  if (!q) { dropdown.style.display = 'none'; return; }
-  const matches = CITATIONS.filter(c => c.name.toLowerCase().includes(q) || c.statute.toLowerCase().includes(q)).slice(0, 12);
-  if (!matches.length) { dropdown.style.display = 'none'; return; }
+  if (!q) { dropdown.style.display='none'; return; }
+  const matches = CITATIONS.filter(c => c.name.toLowerCase().includes(q) || c.statute.toLowerCase().includes(q)).slice(0, 14);
+  if (!matches.length) { dropdown.style.display='none'; return; }
   dropdown.innerHTML = matches.map(c => {
-    const color = c.points >= 12 ? '#ef4444' : c.points >= 8 ? '#f97316' : c.points >= 5 ? '#f59e0b' : c.points >= 3 ? '#facc15' : '#4ade80';
+    const color = c.points>=12?'#ef4444':c.points>=8?'#f97316':c.points>=5?'#f59e0b':c.points>=3?'#facc15':'#4ade80';
     return `<div class="dropdown-item" onclick="addCitation(${CITATIONS.indexOf(c)})">
       <div>
         <div class="name">${c.name}</div>
-        <div class="meta">${c.statute} ${c.jail ? '· <span style="color:#f87171">⚠️ Incarcerable</span>' : ''}</div>
+        <div class="meta">${c.statute}${c.jail?' · <span style="color:#f87171">⚠️ Incarcerable</span>':''}</div>
       </div>
-      <span class="pts-pill" style="color:${color};border-color:${color};">${c.points} pt${c.points !== 1 ? 's' : ''}</span>
+      <span class="pts-pill" style="color:${color};border-color:${color}">${c.points} pt${c.points!==1?'s':''}</span>
     </div>`;
   }).join('');
-  dropdown.style.display = 'block';
+  dropdown.style.display='block';
 });
 
-document.addEventListener('click', function(e) {
-  if (!e.target.closest('.search-wrap')) dropdown.style.display = 'none';
-});
+document.addEventListener('click', e => { if (!e.target.closest('.search-wrap')) dropdown.style.display='none'; });
 
 function addCitation(idx) {
-  dropdown.style.display = 'none';
-  searchEl.value = '';
-  const c = CITATIONS[idx];
-  addedCitations.push({ ...c, idx });
-  renderCitations();
-  updateResults();
+  dropdown.style.display='none'; searchEl.value='';
+  addedCitations.push({...CITATIONS[idx]});
+  renderCitations(); updateResults();
 }
-
-function removeCitation(i) {
-  addedCitations.splice(i, 1);
-  renderCitations();
-  updateResults();
-}
+function removeCitation(i) { addedCitations.splice(i,1); renderCitations(); updateResults(); }
 
 function renderCitations() {
-  const el = document.getElementById('citationList');
   document.getElementById('citationCount').textContent = addedCitations.length;
-  if (!addedCitations.length) {
-    el.innerHTML = '<p class="empty-state">No citations added yet — search above</p>';
-    return;
-  }
-  el.innerHTML = addedCitations.map((c, i) => {
-    const color = c.points >= 12 ? '#ef4444' : c.points >= 8 ? '#f97316' : c.points >= 5 ? '#f59e0b' : '#4ade80';
-    return `<span class="citation-tag">
-      <span class="tag-name">${c.name}</span>
-      <span class="tag-pts" style="color:${color}">${c.points}pt</span>
-      <button class="remove-btn" onclick="removeCitation(${i})">✕</button>
-    </span>`;
+  const el = document.getElementById('citationList');
+  if (!addedCitations.length) { el.innerHTML='<p class="empty-state">No citations added yet — search above</p>'; return; }
+  el.innerHTML = addedCitations.map((c,i) => {
+    const color = c.points>=12?'#ef4444':c.points>=8?'#f97316':c.points>=5?'#f59e0b':'#4ade80';
+    return `<span class="citation-tag"><span class="tag-name">${c.name}</span><span class="tag-pts" style="color:${color}">${c.points}pt</span><button class="remove-btn" onclick="removeCitation(${i})">✕</button></span>`;
   }).join('');
 }
 
 function getInsRate(points) {
   const keys = Object.keys(POINTS_INS).map(Number).sort((a,b)=>a-b);
-  let rate = 0;
-  for (const k of keys) { if (points >= k) rate = POINTS_INS[k]; }
-  return rate;
+  let rate=0; for(const k of keys){if(points>=k)rate=POINTS_INS[k];} return rate;
+}
+function fmt(n){ return '$'+Math.round(n).toLocaleString(); }
+
+function updateContext() {
+  const courtDate = document.getElementById('courtDate').value;
+  if (courtDate) {
+    const days = Math.ceil((new Date(courtDate) - new Date()) / 86400000);
+    const banner = document.getElementById('urgencyBanner');
+    if (days <= 45 && days >= 0) {
+      banner.classList.add('show');
+      document.getElementById('urgencyDays').textContent = days + ' days left';
+      document.getElementById('urgencyText').textContent = days <= 7 ? '🚨 CRITICAL — Court date is very soon!' : days <= 14 ? '⚠️ Urgent — Court date approaching fast' : '⚠️ Court date in ' + days + ' days — client needs to act now';
+    } else { banner.classList.remove('show'); }
+  }
+  updateResults();
 }
 
-function fmt(n) { return '$' + n.toLocaleString(); }
-
 function updateResults() {
-  const resultsEl = document.getElementById('results');
-  if (!addedCitations.length) { resultsEl.classList.remove('visible'); return; }
-  resultsEl.classList.add('visible');
+  if (!addedCitations.length) { document.getElementById('results').classList.remove('visible'); return; }
+  document.getElementById('results').classList.add('visible');
 
-  // Total points (max per incident rule — sum all since these are separate incidents typically)
-  const totalPts = addedCitations.reduce((s, c) => s + c.points, 0);
-  const maxFee = Math.max(...addedCitations.map(c => c.fee));
-  const totalFee = addedCitations.length > 1
-    ? Math.round(addedCitations.reduce((s,c) => s + c.fee, 0) * 0.85) // 15% multi-ticket discount
-    : maxFee;
-  const totalFines = addedCitations.reduce((s,c) => s + (c.fine || 0), 0);
-  const hasJail = addedCitations.some(c => c.jail);
-  const hasSerious = addedCitations.some(c => c.serious);
-  const highestTier = Math.max(...addedCitations.map(c => c.tier));
+  const newPts = addedCitations.reduce((s,c)=>s+c.points,0);
+  const priorPts = parseInt(document.getElementById('priorPoints').value)||0;
+  const totalPts = newPts + priorPts;
+  const isCDL = document.getElementById('isCDL').checked;
+  const isSensitiveJob = document.getElementById('isSensitiveJob').checked;
+  const hasJail = addedCitations.some(c=>c.jail);
+  const hasSerious = addedCitations.some(c=>c.serious);
+  const highestTier = Math.max(...addedCitations.map(c=>c.tier));
+  const totalFines = addedCitations.reduce((s,c)=>s+(c.fine||0),0);
+
+  // Fee calc
+  let totalFee = addedCitations.length > 1
+    ? Math.round(addedCitations.reduce((s,c)=>s+c.fee,0) * 0.85)
+    : addedCitations[0].fee;
 
   // Insurance
   const insRate = getInsRate(totalPts);
@@ -385,74 +544,122 @@ function updateResults() {
   const total3yr = insIncrease * 3;
 
   // License risk
-  let licenseRisk = '✅ No suspension risk';
-  if (totalPts >= 12) licenseRisk = '❌ AUTO REVOCATION';
-  else if (totalPts >= 8) licenseRisk = '🚫 Likely Suspension';
-  else if (totalPts >= 5) licenseRisk = '⚠️ Suspension Risk';
-  else if (totalPts >= 3) licenseRisk = '⚠️ Warning Letter';
+  let licenseRisk, licenseColor;
+  if (totalPts>=12){licenseRisk='❌ AUTO REVOCATION';licenseColor='#ef4444';}
+  else if(totalPts>=8){licenseRisk='🚫 Likely Suspension';licenseColor='#ef4444';}
+  else if(totalPts>=5){licenseRisk='⚠️ Suspension Risk';licenseColor='#f97316';}
+  else if(totalPts>=3){licenseRisk='⚠️ Warning Letter';licenseColor='#f59e0b';}
+  else{licenseRisk='✅ Low Risk';licenseColor='#4ade80';}
 
-  // Update cards
+  // Cards
   document.getElementById('rFee').textContent = fmt(totalFee);
-  document.getElementById('rTier').textContent = addedCitations.length > 1 ? TIER_LABELS[highestTier] + ' (multi-ticket discount applied)' : TIER_LABELS[highestTier];
-  document.getElementById('rPts').textContent = totalPts;
-  document.getElementById('rPtsSub').textContent = totalPts >= 12 ? 'AUTO REVOCATION' : totalPts >= 8 ? 'Suspension likely' : totalPts >= 5 ? 'Suspension risk' : totalPts >= 3 ? 'Warning level' : 'Low risk';
+  document.getElementById('rTier').textContent = (addedCitations.length>1?'Multi-ticket — ':'')+TIER_LABELS[highestTier];
+  document.getElementById('rPts').textContent = totalPts + (priorPts>0?' ('+priorPts+' prior + '+newPts+' new)':'');
+  document.getElementById('rPts').style.color = licenseColor;
+  document.getElementById('rPtsSub').textContent = totalPts>=12?'AUTO REVOCATION':totalPts>=8?'Suspension very likely':totalPts>=5?'Suspension risk':totalPts>=3?'Warning territory':'Low risk';
   document.getElementById('rInsIncrease').textContent = fmt(total3yr);
   document.getElementById('rLicenseRisk').textContent = licenseRisk;
+  document.getElementById('rLicenseRisk').style.color = licenseColor;
+
+  // Points bar
+  const barPct = Math.min((totalPts/12)*100, 100);
+  const barColor = totalPts>=12?'#7f1d1d':totalPts>=8?'#ef4444':totalPts>=5?'#f97316':totalPts>=3?'#f59e0b':'#22c55e';
+  document.getElementById('ptsBarFill').style.width = barPct+'%';
+  document.getElementById('ptsBarFill').style.background = barColor;
+  const priorNote = document.getElementById('priorPtsNote');
+  if (priorPts>0) {
+    priorNote.style.display='block';
+    priorNote.textContent = `ℹ️ Client already has ${priorPts} points. Adding ${newPts} new points puts them at ${totalPts} total — ${totalPts>=8?'SUSPENSION territory':'warning territory'}.`;
+    priorNote.style.color = totalPts>=8?'#ef4444':'#f59e0b';
+  } else { priorNote.style.display='none'; }
 
   // Insurance breakdown
-  document.getElementById('brkPct').textContent = insRate + '%';
-  document.getElementById('brkNewPremium').textContent = fmt(newPremium) + ' / yr';
+  document.getElementById('brkPct').textContent = insRate+'%';
+  document.getElementById('brkNewPremium').textContent = fmt(newPremium)+'/yr';
   document.getElementById('brkY1').textContent = fmt(insIncrease);
   document.getElementById('brkY2').textContent = fmt(insIncrease);
   document.getElementById('brkY3').textContent = fmt(insIncrease);
   document.getElementById('brkTotal').textContent = fmt(total3yr);
-  document.getElementById('brkTotal').style.color = '#f59e0b';
 
   // vs comparison
   const costIfConvicted = totalFines + total3yr;
   document.getElementById('vsBad').textContent = fmt(costIfConvicted);
+  document.getElementById('vsBadBreak').textContent = fmt(totalFines)+' fines + '+fmt(total3yr)+' ins. increase';
   document.getElementById('vsGood').textContent = fmt(totalFee);
   const savings = costIfConvicted - totalFee;
-  document.getElementById('vsSavings').textContent = savings > 0
-    ? `✅ Hiring us saves an estimated ${fmt(savings)} compared to doing nothing`
-    : `Our fee vs. the cost of a conviction`;
+  document.getElementById('vsSavings').textContent = savings>0 ? `Hiring us saves an estimated ${fmt(savings)} vs. doing nothing` : `One flat fee vs. ongoing consequences`;
 
-  // Warning box
+  // CDL box
+  document.getElementById('cdlBox').classList.toggle('show', isCDL);
+
+  // Employment
+  const empList = document.getElementById('empList');
+  const affectedJobs = EMPLOYMENT_IMPACTS.filter(e => totalPts >= e.threshold || isSensitiveJob);
+  empList.innerHTML = EMPLOYMENT_IMPACTS.map(e => {
+    const affected = totalPts >= e.threshold;
+    return `<span class="emp-tag${affected?'  affected':''}" title="${e.text}">${affected?'⚠️ ':''} ${e.label}</span>`;
+  }).join('');
+
+  // Warning
   document.getElementById('warningBox').classList.toggle('show', hasSerious);
 
+  // Financing
+  const fin = document.getElementById('financingGrid');
+  const monthly4 = Math.round(totalFee/4);
+  const monthly12 = Math.round(totalFee/12);
+  const monthly6 = Math.round(totalFee/6);
+  fin.innerHTML = `
+    <div class="fin-card"><div class="fin-name">Klarna</div><div class="fin-terms">4 payments, 0% interest</div><div class="fin-monthly">${fmt(monthly4)}/mo</div></div>
+    <div class="fin-card"><div class="fin-name">Affirm</div><div class="fin-terms">6–12 months financing</div><div class="fin-monthly">${fmt(monthly6)}/mo</div></div>
+    <div class="fin-card"><div class="fin-name">Afterpay</div><div class="fin-terms">4 biweekly payments</div><div class="fin-monthly">${fmt(monthly4)}/2wks</div></div>
+    <div class="fin-card"><div class="fin-name">Wisetack</div><div class="fin-terms">Up to 12 months</div><div class="fin-monthly">${fmt(monthly12)}/mo</div></div>
+  `;
+
   // Script
-  const citNames = addedCitations.map(c => c.name).join(' and ');
-  const script = `"Hi [client name], thanks for calling BEAT-TIX — I'm going to go over what you're facing and what we can do for you.
+  const citNames = addedCitations.map(c=>c.name).join(' and ');
+  const courtDateEl = document.getElementById('courtDate').value;
+  const urgency = courtDateEl ? `Your court date is ${new Date(courtDateEl).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}. ` : '';
+  const cdlLine = isCDL ? `\n\nAnd because you have a CDL, this is even more serious. A conviction could mean losing your CDL — and your job. CDL holders face disqualification, not just points.` : '';
+  const senLine = isSensitiveJob ? `\n\nIf you work in a field that requires a background check — government, healthcare, education, security — a conviction shows up and can affect your job or professional license.` : '';
 
-You've been cited for ${citNames}. If convicted, that's ${totalPts} point${totalPts !== 1 ? 's' : ''} on your license.${totalPts >= 5 ? ' That puts you in suspension territory with the MVA.' : ''}${totalPts >= 12 ? ' In Maryland, 12 points means AUTOMATIC revocation of your license.' : ''}
+  const script = `"Hi [client name], thanks for calling BEAT-TIX. Let me walk you through exactly what you're facing and what we can do.
 
-Here's what most people don't realize — those points don't just affect your license. Your insurance company will see them and raise your rates. We estimate that's about ${fmt(insIncrease)} more per year, or ${fmt(total3yr)} over the next three years.
+You've been cited for ${citNames}. ${urgency}
 
-On top of that, you're looking at court fines of around ${fmt(totalFines)}.
+If you're convicted, that's ${totalPts} point${totalPts!==1?'s':''} on your Maryland license.${priorPts>0?` You already have ${priorPts} points — adding these puts you at ${totalPts} total.`:''}${totalPts>=8?' That triggers an automatic suspension hearing with the MVA.':''}${totalPts>=12?' In Maryland, 12 points means AUTOMATIC revocation — your license is gone.':''}${cdlLine}${senLine}
 
-So doing nothing could cost you around ${fmt(costIfConvicted)} when you add it all up.
+Here's what most people don't realize — if you just pay that fine, you're pleading guilty. Those points go on your record and your insurance company finds out. We estimate your insurance goes up about $${insIncrease.toLocaleString()} a year — that's $${total3yr.toLocaleString()} extra over the next 3 years.
 
-Our flat fee to fight this for you is ${fmt(totalFee)}. ${addedCitations.length > 1 ? "Because you have multiple tickets, I've already applied a discount." : ''} No hidden fees, no surprises. We handle everything — you don't even have to go to court.
+Add in court fines of around $${totalFines.toLocaleString()}, and doing nothing costs you about $${costIfConvicted.toLocaleString()} total.
 
-Would you like to move forward today?"`;
+We can fight this for you for a flat fee of $${totalFee.toLocaleString()}. No hidden charges, no hourly billing. You don't even have to take a day off work to go to court — our attorney appears on your behalf.
+
+If money is a concern, we also work with Klarna and Affirm — you can get started for as little as $${monthly4.toLocaleString()} today and pay the rest over time.
+
+Can we get you signed up today while we still have time before your court date?"`;
 
   document.getElementById('scriptText').textContent = script;
 }
 
 function copyScript() {
-  const text = document.getElementById('scriptText').textContent;
-  navigator.clipboard.writeText(text).then(() => {
+  navigator.clipboard.writeText(document.getElementById('scriptText').textContent).then(()=>{
     const btn = document.querySelector('.copy-btn');
-    btn.textContent = '✅ Copied!';
-    setTimeout(() => btn.textContent = '📋 Copy script', 2000);
+    btn.textContent='✅ Copied!';
+    setTimeout(()=>btn.textContent='📋 Copy script',2000);
   });
 }
 
 function resetAll() {
-  addedCitations = [];
-  renderCitations();
+  addedCitations=[];
+  document.getElementById('citationList').innerHTML='<p class="empty-state">No citations added yet — search above</p>';
+  document.getElementById('citationCount').textContent='0';
   document.getElementById('results').classList.remove('visible');
-  searchEl.value = '';
+  document.getElementById('urgencyBanner').classList.remove('show');
+  document.getElementById('courtDate').value='';
+  document.getElementById('priorPoints').value='';
+  document.getElementById('isCDL').checked=false;
+  document.getElementById('isSensitiveJob').checked=false;
+  searchEl.value='';
 }
 </script>
 </body>
